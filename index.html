@@ -1,0 +1,2121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>흐름의 방 탈출</title>
+  <meta name="description" content="영어 지문 5개로 만든 방탈출 학습 게임">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚪</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/galmuri@2.39.3/dist/galmuri.css" rel="stylesheet">
+  <style>
+/* =========================================================
+   흐름의 방 탈출 — 스타일
+   ========================================================= */
+:root {
+  --ink: #1b1b2f;
+  --paper: #fffdf7;
+  --accent: #ff7043;
+  --accent2: #ffd54f;
+  --panel: rgba(255, 253, 247, .94);
+  --ok: #2e7d32;
+  --bad: #d32f2f;
+  --pixel: 'Galmuri11', 'Galmuri9', 'DungGeunMo', 'Noto Sans KR', monospace;
+  --text: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  color-scheme: light;
+}
+body[data-room="office"]  { --accent: #ff7043; --accent2: #ffd54f; }
+body[data-room="forest"]  { --accent: #43a047; --accent2: #c5e1a5; }
+body[data-room="reef"]    { --accent: #0288d1; --accent2: #81d4fa; }
+body[data-room="factory"] { --accent: #546e7a; --accent2: #ffca28; }
+body[data-room="hospice"] { --accent: #7e57c2; --accent2: #f8bbd0; }
+body[data-room="final"]   { --accent: #ffb300; --accent2: #ffe082; --panel: rgba(30, 18, 52, .93); --paper: #2a1c45; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--text);
+  color: var(--ink);
+  background: #1a1440;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.hidden { display: none !important; }
+button { font-family: inherit; cursor: pointer; }
+input { font-family: var(--text); }
+
+/* ---------- 배경 ---------- */
+#bg { position: fixed; inset: 0; z-index: 0; transition: opacity .25s; }
+#bg.fade { opacity: 0; }
+#bg svg { width: 100%; height: 100%; display: block; }
+
+/* ---------- HUD ---------- */
+#app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+#hud {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 8px 16px;
+  background: rgba(20, 16, 40, .88);
+  color: #fff;
+  font-family: var(--pixel);
+  border-bottom: 4px solid var(--accent);
+  backdrop-filter: blur(4px);
+}
+#hud-room { font-size: 15px; white-space: nowrap; }
+#hud-room b { background: var(--accent); color: #fff; padding: 2px 8px; margin-right: 6px; border-radius: 4px; }
+#hud-map { display: flex; align-items: center; gap: 0; margin: 0 auto; }
+#hud-map i { width: 14px; height: 3px; background: #555; display: inline-block; }
+.mapdot { width: 26px; height: 26px; border-radius: 6px; display: inline-grid; place-items: center; font-size: 12px; background: #444; color: #aaa; border: 2px solid #666; }
+.mapdot.done { background: #66bb6a; color: #fff; border-color: #a5d6a7; }
+.mapdot.now { background: var(--accent2); color: var(--ink); border-color: #fff; animation: pulse 1.2s infinite; }
+.hud-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#hud-hearts { display: flex; gap: 3px; }
+#hud-hearts.hurt { animation: hurt .5s; }
+.heart { width: 24px; height: 22px; }
+.heart.full path { fill: #ff1744; stroke: #fff; stroke-width: .4; }
+.heart.empty path { fill: #444; stroke: #777; stroke-width: .4; }
+#hud-keys { display: flex; gap: 3px; }
+.keyslot { width: 24px; height: 26px; display: grid; place-items: center; background: #333; border: 2px dashed #777; border-radius: 4px; font-size: 14px; color: #888; }
+.keyslot.got { background: #ffd54f; color: var(--ink); border: 2px solid #fff; font-weight: bold; }
+.hud-stat { display: flex; flex-direction: column; line-height: 1.1; text-align: center; }
+.hud-stat small { font-size: 9px; color: #aaa; }
+.hud-stat b { font-size: 14px; color: #ffd54f; }
+.icon-btn { background: #333; border: 2px solid #777; color: #fff; border-radius: 6px; width: 34px; height: 30px; font-size: 15px; }
+.icon-btn.off { opacity: .45; }
+
+/* ---------- 메인 레이아웃 ---------- */
+#play {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.25fr);
+  gap: 18px;
+  padding: 18px;
+  max-width: 1400px; width: 100%;
+  margin: 0 auto;
+  align-items: start;
+}
+#play > * { min-width: 0; }
+.panel {
+  background: var(--panel);
+  border: 4px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, .45);
+  padding: 16px 18px;
+}
+body[data-room="final"] .panel { color: #f3e5f5; border-color: #ffd54f; }
+
+/* 지문 */
+#passage { position: sticky; top: 70px; max-height: calc(100vh - 100px); overflow: auto; }
+.pass-head { font-family: var(--pixel); font-size: 18px; display: flex; align-items: center; gap: 8px; border-bottom: 3px dashed var(--accent); padding-bottom: 8px; margin-bottom: 10px; }
+.pass-head small { font-size: 12px; color: #777; flex: 1; }
+.pass-toggle { display: none; background: none; border: 0; font-size: 20px; }
+.pass-body { font-size: 16px; line-height: 1.85; text-align: justify; word-break: keep-all; }
+#passage.is-locked .pass-body { filter: blur(7px); user-select: none; pointer-events: none; max-height: 200px; overflow: hidden; }
+.pass-lock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -30%); background: var(--ink); color: #fff; padding: 16px 20px; border-radius: 10px; text-align: center; font-family: var(--pixel); line-height: 1.6; width: 80%; }
+#passage { position: sticky; }
+.pass-locked { font-family: var(--pixel); text-align: center; padding: 40px 10px; line-height: 1.8; color: #ffe082; }
+
+/* 문제 영역 */
+#stage { min-height: 380px; position: relative; }
+#stage.boss { border-color: #ffd54f; box-shadow: 0 0 0 4px #ff6f00, 6px 6px 0 rgba(0, 0, 0, .5); }
+.stage-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-family: var(--pixel); }
+.stage-no { background: var(--ink); color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 13px; }
+body[data-room="final"] .stage-no { background: #ffd54f; color: var(--ink); }
+.badge { padding: 4px 10px; border-radius: 20px; font-size: 13px; color: #fff; background: var(--accent); border: 2px solid var(--ink); }
+.badge-ox { background: #e53935; } .badge-mc { background: #1e88e5; } .badge-short { background: #8e24aa; }
+.badge-insert { background: #f4511e; } .badge-order { background: #00897b; } .badge-hotspot { background: #6d4c41; }
+.badge-classify { background: #5e35b1; } .badge-mini { background: linear-gradient(90deg, #ff4081, #ffab40); } .badge-password { background: #ff8f00; }
+.q { font-size: 18px; line-height: 1.7; font-weight: 700; margin-bottom: 16px; word-break: keep-all; white-space: normal; }
+.tip { font-size: 13px; color: #888; text-align: center; margin: 8px 0 0; }
+
+/* 버튼 */
+.btn {
+  font-family: var(--pixel);
+  font-size: 16px;
+  padding: 12px 22px;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 5px 0 var(--ink);
+  transition: transform .06s, box-shadow .06s;
+}
+.btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-start { background: #ff5252; color: #fff; font-size: 19px; padding: 14px 30px; }
+.btn-go { background: #43a047; color: #fff; }
+.btn-sub { background: #eceff1; }
+.btn-next { background: var(--accent2); font-size: 18px; animation: bounce 1s infinite; }
+.btn-row { display: flex; justify-content: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+
+/* O/X */
+.ox-row { display: flex; justify-content: center; gap: 30px; margin: 20px 0; }
+.ox { width: 140px; height: 140px; font-size: 80px; font-weight: 900; border: 5px solid var(--ink); border-radius: 20px; box-shadow: 0 8px 0 var(--ink); font-family: Arial, sans-serif; transition: transform .1s; }
+.ox.o { background: #e3f2fd; color: #1565c0; }
+.ox.x { background: #ffebee; color: #c62828; }
+.ox:hover:not(:disabled) { transform: translateY(-4px) rotate(-3deg); }
+.ox.right { background: #c8e6c9; animation: pop .4s; }
+.ox.wrongpick, .mc.wrongpick, .sent.wrongpick { opacity: .4; text-decoration: line-through; }
+
+/* 객관식 */
+.mc-list { display: flex; flex-direction: column; gap: 10px; }
+.mc { display: flex; gap: 10px; text-align: left; padding: 12px 14px; border: 3px solid var(--ink); background: #fff; border-radius: 10px; font-size: 16px; line-height: 1.5; box-shadow: 0 4px 0 var(--ink); }
+.mc:hover:not(:disabled) { background: #fff8e1; }
+.mc .num { font-weight: 900; color: var(--accent); }
+.mc.right { background: #c8e6c9; border-color: var(--ok); }
+body[data-room="final"] .mc { background: #3b2a5e; color: #fff; border-color: #ffd54f; box-shadow: 0 4px 0 #ffb300; }
+body[data-room="final"] .mc.right { background: #2e7d32; }
+
+/* 입력 */
+.answer-row { display: flex; gap: 10px; margin-top: 10px; }
+.answer-row input { flex: 1; min-width: 0; font-size: 18px; padding: 12px 14px; border: 3px solid var(--ink); border-radius: 10px; outline: none; }
+.answer-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent2); }
+.answer-row.locked { opacity: .5; }
+.hint { margin-top: 10px; background: #fff8e1; border: 2px dashed #ffb300; padding: 8px 12px; border-radius: 8px; font-size: 15px; }
+
+/* 흐름과 무관한 문장 */
+.insert-text { font-size: 16px; line-height: 1.95; background: #fff; border: 2px solid #ccc; border-radius: 10px; padding: 14px; text-align: justify; }
+.insert-text .lead { color: #333; }
+.sent { display: inline; cursor: pointer; padding: 1px 2px; border-radius: 4px; color: inherit; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.sent b { color: var(--accent); }
+.sent:hover:not(.wrongpick) { background: #fff3e0; box-shadow: inset 0 -3px 0 var(--accent); }
+.sent.right { background: #ffcdd2; text-decoration: line-through wavy #d32f2f; }
+
+/* 순서 배열 */
+.order-slots { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.slot { display: flex; align-items: center; gap: 10px; border: 3px dashed #aaa; border-radius: 10px; padding: 10px; min-height: 48px; color: #aaa; cursor: pointer; }
+.slot-n { width: 28px; height: 28px; flex: none; border-radius: 50%; background: #ddd; display: grid; place-items: center; font-weight: 900; color: #666; }
+.slot.filled { border-style: solid; border-color: var(--accent); color: var(--ink); background: #fff; }
+.slot.filled .slot-n { background: var(--accent); color: #fff; }
+.slot.right { border-color: var(--ok); background: #e8f5e9; }
+.order-pool { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 10px 12px; border: 3px solid var(--ink); border-radius: 10px; background: #fffde7; font-size: 15px; text-align: left; box-shadow: 0 3px 0 var(--ink); }
+.chip.used { opacity: .25; pointer-events: none; }
+
+/* 그림 퀴즈 */
+.hotspot-wrap { background: #fff; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; }
+.quiz-svg { display: block; width: 100%; height: auto; max-height: 52vh; }
+.hs { cursor: pointer; outline: none; }
+.hs-c { fill: rgba(255, 255, 255, .9); stroke: var(--ink); stroke-width: 3; transition: all .15s; }
+.hs-t { font: bold 20px Galmuri11, monospace; fill: var(--ink); pointer-events: none; }
+.hs:hover .hs-c, .hs:focus .hs-c { fill: #fff59d; }
+.hs.on .hs-c { fill: #ffd54f; stroke: #e65100; stroke-width: 5; }
+.hs.right .hs-c { fill: #69f0ae; }
+.egg .egg-t { fill: #b9f6ca; font-size: 22px; }
+.egg:hover .egg-shell, .egg:focus .egg-shell { stroke: #fff; stroke-width: 6; }
+.egg.on .egg-shell { stroke: #ffd54f; stroke-width: 7; }
+.egg.on .egg-t { fill: #ffd54f; }
+.egg.right .egg-shell { stroke: #69f0ae; stroke-width: 8; }
+.pick-line { text-align: center; margin-top: 10px; font-size: 16px; }
+
+/* 분류 */
+.cls-head { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; text-align: center; font-family: var(--pixel); font-size: 14px; }
+.cls-head span { padding: 8px; border-radius: 8px; border: 3px solid var(--ink); }
+.cls-head .b0 { background: #bbdefb; } .cls-head .b1 { background: #e1bee7; }
+.cls-list { display: flex; flex-direction: column; gap: 8px; }
+.cls-card { display: flex; align-items: center; gap: 8px; border: 3px solid var(--ink); border-radius: 10px; background: #fff; padding: 6px; transition: transform .2s, background .2s; }
+.cls-t { flex: 1; text-align: center; font-size: 15px; }
+.cls-btn { width: 44px; height: 40px; border: 2px solid var(--ink); border-radius: 8px; font-size: 16px; }
+.cls-btn.b0 { background: #bbdefb; } .cls-btn.b1 { background: #e1bee7; }
+.cls-card.to0 { background: #e3f2fd; transform: translateX(-10px); border-color: #1565c0; }
+.cls-card.to1 { background: #f3e5f5; transform: translateX(10px); border-color: #6a1b9a; }
+.cls-card.to0 .cls-t::before { content: '[치료 중심] '; color: #1565c0; font-weight: 900; }
+.cls-card.to1 .cls-t::before { content: '[임종 돌봄] '; color: #6a1b9a; font-weight: 900; }
+.cls-card.bad { background: #ffcdd2 !important; border-color: var(--bad); animation: shake .4s; }
+
+/* 비밀번호 */
+.pw-slots { display: flex; justify-content: center; gap: 10px; margin: 16px 0; }
+.pw-slot { width: 58px; height: 68px; border: 4px solid #ffd54f; border-radius: 10px; display: grid; place-items: center; font: bold 36px var(--pixel); color: #ffd54f; background: rgba(0, 0, 0, .35); }
+.pw-slot.filled { background: #5d4037; }
+.pw-slot.right { background: #2e7d32; color: #fff; animation: pop .4s; }
+.pw-tiles { display: flex; justify-content: center; gap: 12px; }
+.pw-tile { width: 62px; height: 62px; font: bold 32px var(--pixel); border: 4px solid var(--ink); background: #ffd54f; border-radius: 12px; box-shadow: 0 6px 0 #b8860b; }
+.pw-tile:disabled { opacity: .25; }
+.final-lock { transition: transform .4s, opacity .4s; transform-box: fill-box; transform-origin: center; }
+.final-lock.open { transform: translateY(-30px) rotate(-25deg); opacity: 0; }
+
+/* 정답 해설 */
+.stage-foot { margin-top: 16px; }
+.explain { background: #e8f5e9; border: 3px solid var(--ok); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; animation: slideUp .3s; color: #1b1b2f; }
+.explain-title { font-family: var(--pixel); font-size: 18px; color: var(--ok); margin-bottom: 6px; }
+.explain-body { font-size: 15px; line-height: 1.7; }
+.stage-foot .btn-next { display: block; margin: 0 auto; }
+.wrong-msg { background: #ffebee; color: var(--bad); border: 3px solid var(--bad); border-radius: 10px; padding: 10px 12px; font-weight: 700; animation: slideUp .25s; }
+
+/* ---------- 미니게임 ---------- */
+.mg-desc { font-size: 15px; line-height: 1.7; margin: 0 0 12px; background: #fff8e1; border-left: 5px solid #ffb300; padding: 8px 12px; border-radius: 6px; color: #1b1b2f; }
+.mg-count { color: #e65100; font-weight: 700; }
+.mg-hint { min-height: 24px; text-align: center; font-weight: 700; margin: 10px 0 0; }
+.mg-hint .ok { color: var(--ok); } .mg-hint .no { color: var(--bad); }
+.fall-stat { display: flex; justify-content: center; gap: 18px; font-family: var(--pixel); font-size: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+
+/* 물총 */
+.paint-wrap { position: relative; border: 4px solid var(--ink); border-radius: 12px; overflow: hidden; touch-action: none; aspect-ratio: 720 / 300; background: #fff; }
+.paint-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.paint-top { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ctext y='32' font-size='32'%3E%F0%9F%94%AB%3C/text%3E%3C/svg%3E") 4 20, crosshair; }
+.drops { position: absolute; inset: 0; pointer-events: none; }
+.drops i { position: absolute; width: 10px; height: 14px; background: #4fc3f7; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; animation: drip .7s forwards; }
+.meter { position: relative; height: 22px; background: #eee; border: 3px solid var(--ink); border-radius: 12px; margin-top: 10px; overflow: hidden; }
+.meter i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #4fc3f7, #0288d1); transition: width .25s; }
+.meter span { position: relative; display: block; text-align: center; font: 12px/16px var(--pixel); }
+
+/* 단어 비 */
+.fall-area { position: relative; height: 360px; border: 4px solid var(--ink); border-radius: 12px; overflow: hidden; background: linear-gradient(#90caf9, #e3f2fd 70%, #a5d6a7 70%); }
+.fall-cloud { text-align: center; font-size: 34px; letter-spacing: 30px; opacity: .9; }
+.fall-word { position: absolute; top: 0; background: #fff; border: 4px solid var(--ink); border-radius: 14px; padding: 10px 18px; text-align: center; box-shadow: 0 5px 0 var(--ink); white-space: nowrap; }
+.fw-ko { display: block; font: bold 28px var(--pixel); }
+.fw-hint { display: block; font-size: 13px; color: #e65100; min-height: 16px; font-family: monospace; }
+.fall-word.danger { background: #ffcdd2; animation: wobble .3s infinite; }
+.fall-word.boom { animation: boom .5s forwards; background: #c8e6c9; }
+.fall-word.splat { animation: splat .6s forwards; }
+.fall-ground { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(90deg, #6d4c41 0 20px, #795548 20px 40px); }
+
+/* 카드 */
+.mem-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; perspective: 800px; }
+.mem-card { aspect-ratio: 4 / 3; border: 0; padding: 0; background: none; }
+.mem-inner { position: relative; display: block; width: 100%; height: 100%; transition: transform .4s; transform-style: preserve-3d; }
+.mem-card.flipped .mem-inner { transform: rotateY(180deg); }
+.mem-back, .mem-front { position: absolute; inset: 0; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 10px; backface-visibility: hidden; -webkit-backface-visibility: hidden; padding: 4px; }
+.mem-back { background: repeating-linear-gradient(45deg, var(--accent) 0 10px, #4fc3f7 10px 20px); color: #fff; font: bold 30px var(--pixel); text-shadow: 2px 2px 0 var(--ink); }
+.mem-front { transform: rotateY(180deg); background: #fff; font-size: 15px; font-weight: 700; word-break: keep-all; }
+.mem-front.en { color: #0277bd; font-size: clamp(11px, 3.4vw, 17px); font-family: Arial, sans-serif; overflow-wrap: anywhere; }
+.mem-card.matched .mem-front { background: #c8e6c9; animation: pop .4s; }
+
+/* 벨트 */
+.belt { position: relative; height: 230px; border: 4px solid var(--ink); border-radius: 12px; overflow: hidden; background: linear-gradient(#cfd8dc 0 62%, #37474f 62%); }
+.belt-surface { position: absolute; left: 0; right: 0; bottom: 40px; height: 36px; background: repeating-linear-gradient(90deg, #263238 0 30px, #455a64 30px 60px); animation: beltmove .5s linear infinite; }
+.belt-obj { position: absolute; left: 0; bottom: 70px; font-size: 96px; line-height: 1; filter: blur(2.5px); will-change: transform; transform: translateX(-140px); }
+.belt-obj.slow { filter: none; }
+.belt-scanner { position: absolute; left: 50%; top: 0; transform: translateX(-50%); background: #455a64; color: #69f0ae; font: 14px var(--pixel); padding: 4px 14px; border: 3px solid var(--ink); border-top: 0; border-radius: 0 0 10px 10px; }
+.belt-reveal { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, .8); }
+.belt-reveal.show { display: flex; animation: pop .4s; }
+.belt-reveal span { font-size: 100px; line-height: 1.1; }
+.belt-reveal b { font: 20px var(--pixel); }
+
+/* 세균 */
+.germ-wrap { border: 4px solid var(--ink); border-radius: 12px; overflow: hidden; touch-action: none; }
+.germ-wrap canvas { display: block; width: 100%; height: auto; cursor: grab; }
+
+/* ---------- 오버레이 ---------- */
+#overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 6, 30, .55); overflow-y: auto; }
+#overlay.show { display: flex; }
+#overlay.intro { background: rgba(10, 6, 30, .25); }
+.ov-card { background: var(--paper); border: 5px solid var(--ink); border-radius: 18px; box-shadow: 10px 10px 0 rgba(0, 0, 0, .5); padding: 26px 28px; max-width: 620px; width: 100%; text-align: center; animation: popIn .35s; margin: auto; color: var(--ink); }
+body[data-room="final"] .ov-card { color: #fff; border-color: #ffd54f; }
+.title-badge { display: inline-block; font: 14px var(--pixel); background: var(--ink); color: #ffd54f; padding: 4px 12px; border-radius: 4px; letter-spacing: 4px; }
+.game-title { font: 46px/1.2 var(--pixel); margin: 10px 0 4px; color: #ff5252; text-shadow: 3px 3px 0 var(--ink), -1px -1px 0 var(--ink); letter-spacing: 2px; }
+.game-sub { margin: 0 0 14px; }
+.rules { text-align: left; background: #fff8e1; border: 3px dashed #ffb300; border-radius: 10px; padding: 10px 14px; font-size: 14px; line-height: 1.9; margin-bottom: 16px; }
+#login, .id-form { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+#login label, .id-form label { display: flex; align-items: center; gap: 10px; font: 16px var(--pixel); white-space: nowrap; }
+.id-form input { flex: 1; font-size: 18px; padding: 10px 12px; border: 3px solid var(--ink); border-radius: 10px; }
+.login-err { color: var(--bad); margin: 0; min-height: 18px; font-size: 14px; }
+.room-no { font: 18px var(--pixel); color: #fff; background: var(--accent); display: inline-block; padding: 4px 14px; border-radius: 6px; border: 3px solid var(--ink); }
+.room-title { font: 40px/1.3 var(--pixel); margin: 10px 0 0; }
+.room-sub { color: #888; font-style: italic; margin-bottom: 14px; }
+.story { font-size: 16px; line-height: 1.9; background: rgba(0, 0, 0, .05); padding: 12px; border-radius: 10px; }
+.room-meta { font: 14px var(--pixel); color: #888; margin: 10px 0 16px; }
+.clear-title, .win-title, .go-title { font: 44px/1.2 var(--pixel); margin-bottom: 10px; }
+.clear-title { color: #43a047; text-shadow: 3px 3px 0 var(--ink); animation: bounce 1s infinite; }
+.win-title { color: #ffd54f; text-shadow: 3px 3px 0 var(--ink); animation: rainbow 2s infinite; }
+.go-title { color: #ff1744; text-shadow: 3px 3px 0 #000; }
+#overlay.gameover { background: rgba(0, 0, 0, .85); }
+#overlay.gameover .ov-card { background: #1b1b2f; color: #fff; border-color: #ff1744; }
+.key-get { font: 20px var(--pixel); margin: 10px 0; }
+.big-letter { display: inline-grid; place-items: center; width: 64px; height: 70px; background: #ffd54f; border: 4px solid var(--ink); border-radius: 10px; font-size: 42px; margin-left: 8px; animation: spinIn .8s; vertical-align: middle; }
+.oneup { font: 22px var(--pixel); color: #2e7d32; animation: floatUp 1.5s; }
+.clear-score { font: 16px var(--pixel); color: #e65100; margin-bottom: 16px; }
+.door-anim { position: relative; width: 120px; height: 150px; margin: 6px auto 10px; perspective: 400px; background: #fff59d; border: 5px solid var(--ink); border-radius: 60px 60px 0 0; overflow: hidden; }
+.door-light { position: absolute; inset: 0; background: radial-gradient(#fff, #ffeb3b); }
+.door-l, .door-r { position: absolute; top: 0; bottom: 0; width: 50%; background: #8d6e63; z-index: 2; border: 3px solid #5d4037; }
+.door-l { left: 0; transform-origin: left; animation: doorL 1.2s .3s forwards; }
+.door-r { right: 0; transform-origin: right; animation: doorR 1.2s .3s forwards; }
+.result-box { background: rgba(0, 0, 0, .06); border-radius: 10px; padding: 10px 14px; margin: 12px 0; text-align: left; }
+#overlay.gameover .result-box { background: rgba(255, 255, 255, .08); }
+.result-box div { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px dashed rgba(128, 128, 128, .4); font-size: 15px; }
+.result-box div:last-child { border-bottom: 0; }
+.result-box span { white-space: nowrap; color: #888; }
+.result-box b { text-align: right; }
+.send-state { font-size: 14px; }
+.cert { background: #fffdf0; color: var(--ink); border: 6px double #b8860b; border-radius: 12px; padding: 16px; margin: 10px 0; }
+.cert-head { font: 22px var(--pixel); color: #b8860b; }
+.cert-name { font: 30px var(--pixel); margin: 10px 0; border-bottom: 3px solid #b8860b; display: inline-block; padding: 0 20px; }
+.cert p { line-height: 1.8; font-size: 15px; }
+.cert-word { font: 22px var(--pixel); color: #e65100; letter-spacing: 3px; }
+
+/* ---------- 효과 ---------- */
+#flash { position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: 0; }
+#flash.ok { background: radial-gradient(rgba(105, 240, 174, .0), rgba(105, 240, 174, .55)); animation: flash .5s; }
+#flash.bad { background: radial-gradient(rgba(255, 23, 68, 0), rgba(255, 23, 68, .6)); animation: flash .5s; }
+#fx { position: fixed; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+.confetti { position: absolute; top: -20px; width: 10px; height: 16px; animation: fall linear forwards; }
+.float-txt { position: fixed; z-index: 50; font: bold 34px var(--pixel); pointer-events: none; transform: translateX(-50%); animation: floatUp 1.2s forwards; text-shadow: 3px 3px 0 var(--ink); }
+.float-txt.pts { color: #ffd54f; }
+.float-txt.miss { color: #ff1744; }
+.shake { animation: shake .4s; }
+
+/* ---------- 배경 애니메이션 ---------- */
+.sc-bob { animation: bob 2.4s ease-in-out infinite; }
+.sc-twinkle { animation: twinkle 2.5s ease-in-out infinite; }
+.sc-float { animation: floaty 4s ease-in-out infinite; }
+.sc-flame { animation: flicker .3s infinite alternate; transform-box: fill-box; transform-origin: bottom; }
+.sc-smoke { animation: smoke 3s infinite; }
+.sc-screen { animation: screen 3s infinite; }
+.sc-clock { animation: spin 8s linear infinite; }
+.sc-sway { animation: sway 3s ease-in-out infinite; }
+.sc-cloud { animation: drift 20s ease-in-out infinite alternate; }
+.sc-bolt { animation: bolt 5s infinite; }
+.sc-glow { animation: glow 1.5s infinite alternate; }
+.sc-grow { animation: grow 3s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: left bottom; }
+.sc-ray { animation: ray 6s ease-in-out infinite alternate; }
+.sc-boat { animation: boat 6s ease-in-out infinite; }
+.sc-swim { animation: swim 18s linear infinite; }
+.sc-bubble { animation: rise 8s linear infinite; }
+.sc-spin { animation: spin 6s linear infinite; }
+.sc-spin-r { animation: spin 4s linear infinite reverse; }
+.sc-scan { animation: scan 1.6s ease-in-out infinite alternate; }
+.sc-blink { animation: blink 1s steps(2) infinite; }
+.sc-belt { animation: belt 4s linear infinite; }
+.sc-sun { animation: sun 6s ease-in-out infinite alternate; }
+.sc-curtain { animation: curtain 5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: top; }
+.sc-glowlamp { animation: glow 2s infinite alternate; }
+.sc-doorglow { animation: glow 2s infinite alternate; }
+
+@keyframes bob { 50% { transform: translateY(-12px); } }
+@keyframes twinkle { 50% { opacity: .2; } }
+@keyframes floaty { 0%, 100% { transform: translateY(0); opacity: .9; } 50% { transform: translateY(-20px); opacity: 1; } }
+@keyframes flicker { from { transform: scaleY(1); } to { transform: scaleY(1.2) skewX(4deg); } }
+@keyframes smoke { from { transform: translateY(0); opacity: .7; } to { transform: translateY(-40px); opacity: 0; } }
+@keyframes screen { 50% { fill: #b3e5fc; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes drift { to { transform: translateX(120px); } }
+@keyframes bolt { 0%, 88%, 92%, 96%, 100% { opacity: 0; } 90%, 94% { opacity: 1; } }
+@keyframes glow { from { opacity: .55; } to { opacity: 1; } }
+@keyframes grow { from { transform: scale(.85); } to { transform: scale(1.05); } }
+@keyframes ray { to { transform: translateX(60px); opacity: .5; } }
+@keyframes boat { 50% { transform: translate(30px, 6px) rotate(1deg); } }
+@keyframes swim { from { transform: translateX(-1800px); } to { transform: translateX(1800px); } }
+@keyframes rise { from { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } to { transform: translateY(-900px); opacity: 0; } }
+@keyframes scan { from { opacity: .05; } to { opacity: .45; } }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes belt { from { transform: translateX(0); } to { transform: translateX(150px); } }
+@keyframes sun { to { transform: translateY(40px); } }
+@keyframes curtain { to { transform: skewX(3deg); } }
+@keyframes beltmove { to { background-position: 60px 0; } }
+
+@keyframes pulse { 50% { transform: scale(1.15); } }
+@keyframes hurt { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); filter: brightness(2); } 75% { transform: translateX(6px); } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
+@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes popIn { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -70px); } }
+@keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+@keyframes drip { from { transform: translate(-50%, -50%) scale(1); opacity: .9; } to { transform: translate(-50%, 30px) scale(.4); opacity: 0; } }
+@keyframes wobble { 50% { margin-left: 4px; } }
+@keyframes boom { to { transform: scale(1.6); opacity: 0; } }
+@keyframes splat { to { transform: scaleY(.2) scaleX(1.5); opacity: 0; background: #4fc3f7; } }
+@keyframes spinIn { from { transform: rotateY(720deg) scale(.2); } to { transform: none; } }
+@keyframes doorL { to { transform: rotateY(-100deg); } }
+@keyframes doorR { to { transform: rotateY(100deg); } }
+@keyframes rainbow { 0%, 100% { color: #ffd54f; } 33% { color: #ff80ab; } 66% { color: #80d8ff; } }
+
+/* ---------- 모바일 ---------- */
+@media (max-width: 900px) {
+  #play { grid-template-columns: minmax(0, 1fr); padding: 12px; gap: 12px; }
+  #passage { position: relative; top: 0; max-height: none; }
+  #passage.collapsed .pass-body { max-height: 70px; overflow: hidden; -webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent); }
+  .pass-toggle { display: inline-block; }
+  #hud { gap: 8px; padding: 6px 10px; }
+  #hud-map { order: 3; width: 100%; justify-content: center; }
+  .hud-right { gap: 8px; }
+  .heart { width: 20px; height: 18px; }
+  .game-title { font-size: 34px; }
+  .room-title { font-size: 30px; }
+  .ox { width: 110px; height: 110px; font-size: 64px; }
+  .mem-grid { grid-template-columns: repeat(3, 1fr); }
+  .fall-area { height: 300px; }
+  .q { font-size: 16px; }
+  .pw-slot { width: 48px; height: 58px; font-size: 28px; }
+  .pw-tile { width: 52px; height: 52px; font-size: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+
+</style>
+</head>
+<body data-room="intro">
+  <div id="bg"></div>
+
+  <div id="app" class="hidden">
+    <header id="hud">
+      <div id="hud-room"></div>
+      <div id="hud-map"></div>
+      <div class="hud-right">
+        <div id="hud-hearts" aria-label="하트"></div>
+        <div id="hud-keys" title="열쇠 글자"></div>
+        <div class="hud-stat"><small>SCORE</small><b id="hud-score">000000</b></div>
+        <div class="hud-stat"><small>TIME</small><b id="hud-time">0:00</b></div>
+        <button id="btn-bgm" class="icon-btn" title="배경음 켜기/끄기">🎵</button>
+        <button id="btn-sfx" class="icon-btn" title="효과음 켜기/끄기">🔊</button>
+      </div>
+    </header>
+    <main id="play">
+      <section id="passage" class="panel"></section>
+      <section id="stage" class="panel"></section>
+    </main>
+  </div>
+
+  <div id="overlay"></div>
+  <div id="flash"></div>
+  <div id="fx"></div>
+
+  <script>
+(function(){var s='=owO9pQXgAiC9BCIgAiCdBCIgACIgoQfgISIcaL7IOY7gQpirjpgr3ZgrDCnhuOjGyOuvuOI0WZ7R6J7cuI7gwZorzLnszYnsP4msDClAKOIKi5nwDSRMlUTTJCI64WahxGc4VGIgACIgACIgACIKwiIpQrlsj6irDCtWyegYyOIQ6J7Air61gCIDKr6gwbprTKmsDqlrDCkXyOt1qOvWyOIY2J7guI75u46gQIsqzJisDClKuOnEyOmCuOIE2J74y66gYKgiXJosz6lsDCnQuekeyOnLyOIcSI7QeJ7kuI70y66sKI7ggZnszYnsP4msDiO4qY7M6Z7uxlbcFCvduOmV2esEyOhZyOI8W664iZ7UWJ7gk4prD4psj4prDCtV2OtXyOswuOI8W66Q6J7Air6gA6hsT7lsDCgdyOqquOIcSI7QeJ7pC76g8KhsT6irLCI6EHIgACIgACIgACIKwiI4iZ7UWJ7gUooszZtsLCI6wWZiFGbgwiIkJ3b3N3chBnIgoTZwlHdgsHIgACIgACIgogCs0HIiEClayOpguOqcuOo5uOIQeJ7nkCmX2OhcyOIwGY7gQZjrjicldmbhRGIyVGdhVmcndCI8W66MaI7l6J7gg7tqDCpguOie2OpYyOIcG66caL7wC76gwohsT4gtDCvzqOgwuOvzqOIA2J7RSr6ASr6gwomtDLuqDSinuOgnyOinuuIgojbpFGbwhXZgACIgACIgACIgoALyAiOhBCIgACIgACIgAiCs0FIgACIgACIgACIKIiLku4602J7DKr6gQpirz7osDCtWyOnNuOIE2J71aY7gOr6ggZnsDpnsjZmtDCrXyOhkyOIE2J7oWZ746Y7Ia76gw7sq3ppsXrhtDClKuOnR2eqquOIY2J7ES76M+46gUoosTonsDiOpC76ggosrXjIgACIgACIgACIgACIKwiIuQ6irzagtDCtdyesEyepKuOgwqOIE2J7bC76gQYnsnIuqH7krDCgdyukGuOIdG66YiI7E2J7R6J7gQbnsT6isDLuqDSjGyOIAGr6su46goTqwuOIIK760ICIgACIgACIgACIgAiCsIiLku46cC56gQbnsD4msT4jrDCsB2OIw246gQpirjZltjLmtT7srDCvluOjGyepeyOIcWZ7YKL7gA5lsDLuqTInsDCgdyek0qOg0qOIMqZ7wir6gk4prD4psj4prDiOpC76ggosrPjIgACIgACIgACIgACIKwiIuQ6irjonsDCmIyOIkO56Me66gQYnsH4psDbosDCvzqOg0qOs4qOI0qJ7cG66IOI7ggYlsn5jrDSnDyOvdyOIQeJ7Ea76V246gE4psDbosDCtXyOh2uOIA2J78y66duI7goTqwuOIIK76yICIgACIgACIgACIgAiCsIiLku46I6J7ggJisDCvCuOgD2OmCuOIE2J7QCr6NaI7MaI7gAYnsj5lt3rsqDCgdy+gbyOIYur6oWZ7gwCvfuOmyyenAKeZyVGa0BSZiByb0BCZhhGI19WWcCo4goTqwuOIIK76xICIgACIgACIgACIgAiCbBiOz52bpRHcvBCIgACIgACIgAiCsIyPA2J7DKr6gQpirrYlsDCgnyOmV2Om5yOvdyOI8Or6pqJ70K46ggZnsnKsrDyrEyOpLuOIcWZ7YeZ7QOY7gA4pszYuqjIuqD4psDSIcCK74y66gM1UPJEIRG5nwLCI6EHIgACIgACIgACIKwSZ1JHdgozcz9mYgwiIcCK74y66gkaltXoosDytCDyUT9kQiAiOsVmYhxGIsIyYtJCI6UGc5RHI7BCIgACIgACIKsFI6MXZnFGdzBCIgACIgoALsxWduBiOldWYzNXYwBCIgACIgoALiECjdyOuxqOIQG56gg6irDCgnyOj5qOn2yOiD2OIcWZ79K76EmJ7uxlIc5CvduOs2yunnuOI8W66Q6J7Air6g8KhsT6irDCozqOrmuOu3qOIuwbnrTKorzKmsDqlrDChdyetWyOs4qOIgO56oq66ggZnsD4pszYuqjIuqD4psLCXuxlLku46cWZ7Qe66gwZorzqprzohsnqqrDCgdyurCuOIACr6wir6AeK74y66uxlLku46wSI7gA5ls7ZlsDCusuOIIir6pmZ7gwZltDIjrDbsqDCsmuOrLuOIACr6geI78y66Q6J7ggZnszJsqDyrEyOpLuuIgoTey9GdzBCIgACIgoALsxWduBiOyVGd0VGbgACIgACIKwiIy92bEBCbh5WaGBSZoRlIgojY1NHIgACIgAiCsICusuOIJe66AeK7Ie66iAiOlxGdpRHIgACIgAiCsICTB5USGJCI68mbgACIgACIKwiIsFmbpZmIgoTeltGIgACIgAiC7BCIgAiCvoCIt0SLt0SLt0SLt0SLt0SLtACTB5USGBSLt0SLt0SLt0SLt0SLt0SLgoyLgACIgogCs0HIgACIK0FIgACIgAiC9BiIhQItrz4jrDSKlZXa0Fmc1NGKsuI7RSK7gw4orjZusDCkRuOqquOIUq46AeK74i66YK46g4ClayOkXyOtdy+szqOIUq4602J7ESK7gQYnsjaltjrjtjotrDCvzqenmyetG2OIdG66E+46YWZ702J7ee66gQYnszYns37osDCjyqOmV2OiVyOuO2OIUCo4gcCdy9mZt92Yg4WaggGdhVGZgQnbvJnZu92YnAClKuOpKyOvU2OpKyOuY2uIgojbpFGbwhXZgACIgACIgACIgoALxAiOhBCIgACIgACIgAiCs0FIgACIgACIgACIKICjjuOm5yOI42J7BCK7pKr61Or6gwZltTInsDChdyOoEyOnwqOIBOI7daK7iACIgACIgACIgACIgoALigKorj4mtDCnZ2OreyOIRSK7ReK7gwZltTInsDChdyOkbyOtH2OI4W66gm76iACIgACIgACIgACIgoALiw6lsjLssDCmX2OnLyOIBOI7E6J7g0blsD6isDCtayOnhuOiDyuIgACIgACIgACIgACIKwiIES76M+46gQpirz7osDChdyOqV2OiVyOuO2OIseJ7ESK7gQYns3ppsXrhtLCIgACIgACIgACIgAiCsICoIyOmIyOIE+46VCr6gOr6gQpirjZltDCnhuOnR2eqquOI8W66YmL7EmJ7iACIgACIgACIgACIgowWgozcu9Wa0B3bgACIgACIgACIgoALi8Dgdy+gyqOIA2J7Sa46gUqnsDIsqDCtdyesEyepKuOgwqOIgC561Or6cCK7gwosqD5lsDpnsjZmtDCs4qOknuOIcWZ7QuJ7F6J7gA5lsnSZjlGcz9GaoQqiszLltTqisjLmtLCI6EHIgACIgACIgACIKwiIUaL7gyJ7gkqmsTrgrDytCDSnLyOg0qenwquIgoDblJWYsBCLiMWbiAiOlBXe0ByegACIgACIgAiCKwSfgIiLUqJ7YSK7gQrlszZjrDChdyetG2OozqOInw6lsTIpsfCIE2J7daK71aY7gAYnsTItrz4jrDShiyOheyOIukibl1CIrAyczVGboACpLuOmV2OlZ2OhZyOIsQ6irTbnsTIpsDSPg4WZzNXZsJCI64WahxGc4VGIgACIgACIgACIKwiIpwqgsn5jrDCqYyOmCuOIcSI7QeJ7gM3clxGKg8FIfBycgMHIfBCbiAiO05WaoBCIgACIgACIgAiCs0lIuV2czVGbisFI6Mncld3cuFGIgACIgACIgACIKwiIpApnsDIuqbDKgQrlsj6irDClKuOmV2ekeyOnLyOIcG66sJCI6IXZkx2boV2YhxGcgACIgACIgACIgoALi4yZulmclZmZ1NHIzlJgiTnbllGdhBHIhBSZjVHZlJHIvRHIyVGZy9GIulGI0J3bm12bjNXakBCZuFGIulWYwByXf91Xf9Fbg8GdgMXagUmchNGIlZWas1iZv1CZuVGIm9GIsF2bnBSZoRlbc5GXuQKmsz5isD7ksDCvluOtWyOqLuOI0aJ7BiJ7g0ohsDCusuOgnyOIICr60aJ7kO56gA5lsjbusjYurLCI6EHIgACIgACIgACIKwiIuVmIgoTby9mbgwiI0NWY4VmIgoTZk9WbgwiI4mL7Im76gcrwgQrlsj6irDCtWyegYyuIgoDblJWYsBCLiQncvh2ciAiOlBXe0ByegACIgACIgAiCKwSfgQTMgoDduV3bjBCLiALuqvLlsDCkGyOI3KMIE6J7MKr6Iu464+66iAiOsVmYhxGIsIyctJXZnJCI6UWbhdGIsISaulWbiAiOlBXe0ByegACIgACIgAiCKwSfgISIBCK7pq66gQbnsPosqDClKuOvjyOI0aJ7c246gQYnsXrhtD6sqDSK0J3bm12bjNXakBCZuFGIulWYwBiblN3clxGKseJ7ESK7gQYnsjaltjrjtjotrfrwdaK71aY7g0DIlJXYjBSZmlGbtY2btQmblByLgEIosnqqrDCtdyeKz12b0BXb5NHIlZ3byBXbphCoEyOnwqOIBOI7daK7g0DIlJXYjBSZ2lGdhJXdjJCI64WahxGc4VGIgACIgACIgACIKwSXgACIgACIgACIgoQfgEDI6IGIsICs4qOvjyOI0aJ7c246gQYnsnyZulmclZmZ1NHK1aY7gOr6ggZnsDpnsjZmtLCI6QHI7BCIgACIgACIgACIgoAL9BCMgojYgwiIMO66YmL7gQZls3altDCnV2OhcyOIwir602J7ESK7gQYnsHplsXoosLCI6QHI7BCIgACIgACIgACIgoAL9BSMgojYgwiIwir6V+46g0ZorT4jrjZltTbns75prDChdyOjdyevjyOIMKr6YWZ7IWJ746Y7gAIsqDpnsjZmtLCI6QHI7BCIgACIgACIgACIgoAL9BCMgojYgwiIgiI7YiI7gQpirTKorjZltDCjyq+qCuOIE2J7RO76IeK7iAiO0ByegACIgACIgACIgACIKwSfgEDI6IGIsICs4qOvjyOIseJ7ESK7gQYnsjaltjrjtjotrDCvzqenmyetG2uIgoDdgsHIgACIgACIgACIgAiCs0HIwAiOiBCLiw4orjZusDCnV2OhcyOIwir6YWZ7gSI7cCr6gQYnsH4gs3ppsLCI6QHI7BCIgACIgACIgACIgowWgozckJXYjBCIgACIgACIgAiCs0lIpUmchNGIlZWas1iZv1CZuVGKuxFh0uOjPuOIFKK7E6J7iACLikSZyF2YgUmdpRXYyV3Yo4GXES76M+46gw6isHJpsDCjjuOm5yuIbBiOz5WaiBCIgACIgACIgAiCsIiLkiJ7cuI7YWZ7YW66Ea76gA4psTpirjZltn7irTbltDCkXyOh0uOjPuOIka560aJ7gAIsqz5krTbusDSgwquIgoTcgACIgACIgACIgoALiQonszosqDCmluOh2uuIgoDblJWYsBCLiknZpN3chx2YiAiOlBXe0ByegACIgACIgAiCKwSfgIiLUqJ7IiJ7cG66Ay464er6gciLlNWYsBHIyFWaslWbhZGIhBibpByc05WZt9WbgQ3chxGIylWZoRHIk5WZwNHIkxWdvNGI5VGa0BCdhhGdg82cgUWbvhGIuJXd0Vmcg8GdgQnbhdHIvRHItVGa0BicvZGIu9Wbt92YgUWbhNWZiBCdpZKgifCIl6J74y66gsqssLCI64WahxGc4VGIgACIgACIgACIKwiIPJCI6EGIgACIgACIgACIKwiIuQ6irzYosTbltTZntDCgwqOsayevyqOIUq46YWZ7gQrlsb7isDCozqOgwqOhVyOjPuOIcG668yJ7ReK7gA6sqTKorTrgrT7srDCnEyOkXyeknyOIcWZ7ZiI712J7gQYnsTIsqzJisDSinuOgnyOinuOIswJhsTbqrjpirDCgwqOkeyOmZ2OIFKK7E6J7gQpirvJsrz4orjZusDCnEyOkXyOkbyekzuOIUq46QeJ7wGr68Or6iAiOxBCIgACIgACIgAiCsICWg8CIPJCI6wWZiFGbgwiI49mIgoTZwlHdgsHIgACIgACIgowWgozcldWY0NHIgACIgAiCsIiLn5WayVmZmV3cgMXmAKOduVWa0FGcgEGIlNWdkVmcg8GdgIXZkJ3bg4WagQncvZWbvN2cpRGIk5WYg4WahBHIuV2czVGbg8GdgMXagUmchNGIlZWas1iZv1CZuVGIm9GIsF2bnBSZoRHIsMXbvRHctl3cgUmdvJHctlGIvRHIkVGZuVGdulGIzlGI0FGa0BCduVWb0FWZyRHIzlGIlJXYjBSZ2lGdhJXdjBSZslGaXBiLlJXYjBSZmlGbtY2btQmblBCZuFGIlJXYjBSZ2lGdhJXdjBiblV2d0VmYgU2YuVmclZmZpRGIlhGdggGdpdHIvRGIvRHIzFGagMXZjlGcz9GagQmbhBycsFGdpB3cvhGIuVWZ3RXZiBibvlGdj5Wa0NXakBSZoRFIuQncvZWbvNGIulGIoRXYlRGI052byZmbvNGIvRHIzRnbllGdhBHIn5Wa39GbsFGIsUmchNGIlZWas1iZv1CZuVGIu9GIkV2c1N2bmBycpBCdhhGdgkHdpxWajFmZgEGIzlGIlNWawN3boBSQg4yZul2dvJ3Zg4WZlJGIzFGagUmchNGIlZWas1iZv1CZuVGIk5WYgMXZjlGcz9GagQmchd3b0BCduVWblZ3btBSYgwCanV3boRHIskHb05WZjVmUg4SZjFGbwBichlGbp1WYmBSYg4WagMHduVWbv1GI0NXYsBicpVGa0BCZuVGczBCZsV3bjBSelhGdgQXYoRHIvNHIl12boBibyVHdlJHIvRHI05WY3Byb0BSblhGdgI3bmBibv1WbvNGIl1WYjVmYgQXagwycsFGdpB3cvhGIulGI05WZtRXYlJHdgwWYjlGZl1GIn5Wa2lWZjVmcg4WYnVmYgMHduVWa0FGcgUmZpxWLm9WLk5WZgUmcv1GIzFGIsQ3chBHIlhGdg4WSiAiOldWYzNXYwBCIgACIgoALi4CpLuOieyOIYiI7ggIsqDCnhuOvcyOusuOIJe66AeK7Ie66gwblsTbltTbltTbnsDCvluOuvuOmdyOIY2J7ES76M+46uxVIQ6J7ACr60aJ7kO56gA6sqvLlsDCtdy+lBuOq5qOIwSY7Aa76QaI7gAIoszLqr7GX/wYuqzbnsP7sqDClKuOvjyOIE2J7oWZ7IWJ746Y7gwCj5qOvdy+szqOIUq46YmL7gOr6gQYnsH5srDCgdy+szqOtdyubc5SmPuekzuOIcWZ7pqJ7wGK7gQpirD4psjosrDCtdyOhdyOuFuOIcG668yJ7WC769CL7iAiO5J3b0NHIgACIgAiCsISTiAiOyVGd0VGbgACIgACIKwiIlJXYDBSZmlGTtY2btQmbFBiLzZHIlJXYDBSZ2lGdhJXdDJCI6IWdzBCIgACIgoALik5jrH5srDCpKyOvU2OpKyOuY2uIgoTZsRXa0BCIgACIgoALiUDIN90TSJCI68mbgACIgACIKwiIlNWawN3boJCI6kXZrBCIgACIgowegACIgowLqASLt0SLt0SLt0SLt0SLt0SLgUDIN90TSBSLt0SLt0SLt0SLt0SLt0SLgoyLgACIgogCs0HIgACIK0FIgACIgAiC9BiIlC5nwDClayOtWyeuouOIY6J7gwbnszJosDChdy+J9WJ7QKI7nAClKuOrmuOhVyekzuuIgojbpFGbwhXZgACIgACIgACIgoALiECrmuOjGyOjdyOuayOIsa66EWJ7RO76iAiO05WaoBCIgACIgACIgAiCs0lI9WJ7QKI79WJ7QKI7iACLi0bls3blsDpgsLCIsISvVyOkCyuIbBiOzJXZ3NnbhBCIgACIgACIgAiCsISpgueheyOI1u46VCK7iAiOyVGZs9GalNWYsBHIgACIgACIgACIKwiIpApnsDIuqLDKg8DgdyevVyOIUq465i66ggpnsDCvdyOngyOIACr6sa66EWJ7RO76gwpgrTrlsz5gtDykwqOIcSI7QeJ7AGr6su46uxVIkqI78SI7MS46gUqnsX7sqDyoQ+J8iAiOxBCIgACIgACIgAiCsIybrJCI60mcv5GIsICdjFGelJCI6UGZv1GIsICimyOtA2OIkqI78SI7MS46iAiOsVmYhxGIsICdy9GazJCI6UGc5RHI7BCIgACIgACIKoAL9BiIaW6nwDSi4qesTueMgAIsqzJsqjTMg0DI5AikIKOI3IDISao4gkIuqH7krLDIUq46cCr65ASPgMzLxAylDDyNyAikGKOIcCr63IDI9AyMgIJiiDCMzICI64WahxGc4VGIgACIgACIgACIKwiI/AYnsPzLxASkkyOu3qOIscjMg0DIzAikIKOIwMjIgoDdulGagACIgACIgACIgoALdJCOxIyWgozcyV2dz5WYgACIgACIgACIgoALiUKorXonsDCjnuOkey+qIyuIgojclRGbvhWZjFGbwBCIgACIgACIgAiCsIyPcCr6gcoqrDCgdyOgxqOrLuOIJir6xO56xACL0m66825602J7Jir6xO56xACkRuOqquOIACr6AeK74i66YK46uxlLku46YWJ7bC76gQYnsnIuqH7krLDIcSI7kuL7gQbnsT6isDLuqDCgdy+MvEDIRSK7gAYsqz6irDCgdyOqCuOIsA6sqjolt3bnrj4gtDCgwqOnwq+MgwZorzLnsn4nrjotrDCinyej7qubc5CpLuOiW2OrCyOgyqOIE2J7pwJsqDzMoAJjtDCnV2OIAGr6su46gIKlfCvIgoTcgACIgACIgACIgoALi0WduJCI60mcv5GIsICdjFGelJCI6UGZv1GIsICheyOjyqOIwKI7EOr6iAiOsVmYhxGIsICdy9GazJCI6UGc5RHI7BCIgACIgACIKoAL9BSXgACIgACIgACIgoQfgIClayOhVyOtCyOIQeJ7ku46UC76gkKsrDCiyu+MgQJgiDSKQ6J7Air6zgCILep4Lep4Lep4iAiO05WaoBCLikCazlmZoACs4qOozqOvsuuIgoTZtFmbgwSXigqqrj4irLCIsICs4qOr8qOvsuuIgwiIwir6gOr6iACLiAKhs35gsLCIsICazlmZiACLiQrlsDIjrT7lsLCIsICs4qOozqOvsuuIbBiOzJXZ3NnbhBCLiAKkfCvIgoTaq9WblByegACIgACIgACIgACIKwSfgIygyqOIcmL7sa660K46gwbprTLrrjpgrDSqwuOIIK76yAClAKOIpApnsDIuqLDKgs4liv4liLCI6QnbphGIsISKn5WauRHanlGboACnwqOiyuuIgoTZtFmbgwSXigotr/KsqjosrLCIsICs4qOhgyuIgwiIlG56cKL7iACLiIXZk5WdoRnIgwiIn5WauRHanlGbiACLi0bnrzrsrLCIsICnwqOiyuuIbBiOzJXZ3NnbhBCLiEqmiLCI6kmav1WZgsHIgACIgACIgACIgAiCs0HIiUqnsTImtDCreyOlZ2OIpC76ggosrHDIUCo4gkCkeyOg4qONoAyiXK+iXK+iXK+iXKuIgoDdulGagwiIpIXZ0NHctVHZoAStG2Os4qOiguOsTyuIgoTZtFmbgwSXi4WaiJCIsICsE2OpKyOhU2OpNuuIgwiIwir6IC66wOJ7iACLi4WYjh2chJHdiACLig2chJHdiACLiIXZ0NHctVHZiACLiUrhtD4psTLntLCIsIStG2Os4qOiguOsTyuIbBiOzJXZ3NnbhBCLi8IuvH5lfCvIgoTaq9WblByegACIgACIgACIgACIKwSfgIStzqOudyOvjyOIY2J7l6J71Or6gQbnsDClAKOIpApnsDIuqLDKgs4liv4liLCI6QnbphGIsISKndWZoACgxqOrLuuIgoTZtFmbgwSXiwYlsLCIsIycndWZiACLic2ZlJCIsICgeuOhzquIgwiIAGr6su46isFI6Mncld3cuFGIsIiml+J8iAiOpp2btVGI7BCIgACIgACIgACIgowWgozctVGdpBCIgACIgACIgAiCsQDI6IXZ0ZWQ39GbzBCLwAjNyAiOz10dvx2cgwCMyUDI6MXT0JXY0NHIgACIgACIgACIKwiI0Gr68y66ggZnsTInsDCuK2OqyuOI3KMIE6J7MKr6Iu464+66iAiOsVmYhxGIsIicvlXZ252bjJCI6UWbhdGIsISaulWbiAiOlBXe0ByegACIgACIgAiCKwSfgIyhl+J8gESi4qesTuOIgOr6cWL7gAIsqPEI42J7kuI7wir6gAYnsHpnsDyKgEplsjqqrDSgDyelgyOIrAylBuOq5qOIIeK7Nur6g4ClayOjbyOrfuOlNuOI02J7IeK7Nur6gA6sqTbnsH4gsXJosTYurDCtdyekWyOqquOIUq46EBCLgOr6sGY7gQbnsT6isDLuqDClKuuQgwCozqOjhyOq5qOI02J7IeK7Nur6gQpirHkIgojbpFGbwhXZgACIgACIgACIgoALdJyQisFI6EGIgACIgACIgACIKwiI/AYnsDYsqz6irDCgdyemwqOIDKr6gQYnsvJsrDChdyei4qesTuOIA2J7Sa46gUqnsDIsqDCjVuOI8W66wS56gA5lsDIpsDLuqDCmdyOusuOgnyOIuQ6irTbnsTbqrTZmtDCrCyOgyqOIgSI7YJCI6EHIgACIgACIgACIKwSZzxWYmBiOpRHb11GIsIycndWZiAiOnZ3cgwiI5FmctgFI3KMIIaK70CY7gwrprj7tqLCI6wWZiFGbgwiI09GczR3boJCI6UGc5RHI7BCIgACIgACIKoAL9BiIhQpmsjImszJhsj6irDCmdyOnEyOnIyOIACr60aJ7wKr6weJ7gAYnsnJsqDyJ5xGdzFGTnACLn4WZoR1Jg4CpnuOkM2+tCXqnsz6jtDikGKOIwir6sGY7gQ6isDLuqDSK5xGdzFGTowZorzLnsn4prD4psj4prDikGKOIpUGZpNnbphSjGyOIcG665FmctgFISao4gkSZkl2c0V3bokosqLCI64WahxGc4VGIgACIgACIgACIKwSXgACIgACIgACIgogIku46cWZ7ke66QyY7gQbltXqnsz6jtDChdyOgxqOrLuOIEeK7oKr6ke66gQbnsnIuqH7krLCIgACIgACIgACIgAiCsICpLuOnV2OrCyOgyqOI8W66wir6sGY7ggZnsnCbsV2YgIXahhCpLyOs4qOINaI7gAYsqz6irLCIgACIgACIgACIgAiCsICpLuOnV2OudyelZ2OI8W66Q6J74W664W46gwZltXJsqTbsqDCgZyOtyyeoVyOIA2J7Re66gA6sqjZltT4psDCspuOtzuOpLuOrXyOpTuOIE2J7NaI7gwZorzLnsDKhsjlIgACIgACIgACIgACIKwiIku46AWZ70KI7gQYnsnosqDCgnyOudyegDyelgyOI02J7QCr6IeK7gw7sqHplsjqqrDCLAeK7Uq46GeJ7gQbnsH4gsDphsDCozqOmV2+lBuOq5qOI02J7IeK7Nur6iACIgACIgACIgACIgowWgozctVGdpBCIgACIgACIgAiCsIiLkiJ7cuI7YWZ7ta660GY7gwZorDIjrzJhszJisDChdyelgyOvzqOIsKI7AKr6gkIuqH7krDCgxqOrLuOIoiJ7YK46gA5lsjLrrD4psLCI6EHIgACIgACIgACIKwiI0eJ7wC76gwJhszJisLCI6wWZiFGbgwiIyVGZy9mIgoTZwlHdgsHIgACIgACIgowWgozcldWY0NHIgACIgAiCsIiLlJGIvRHI5xWZrlGbgMXagUGZhJ3ZgMXmAK+ZnVGIlhGdgIXZodWaoBSZoRHIsMXagQXagIXZsxWYtNHIlhGdgQJgiDCZl5WatFGelBycpByZnVGIoNWYlBSZkl2culGIk5WdvZGIsxWZjBicpFGIlhGdgY2bgUmepNHIlhGdgwSesR3chxEIusGbvlHI5hGdsFWZoBSYgQmbhBCZpVXcpxGIyFWZsNGIss2YphGdgMXagUmclhGdgYWagUWZzByb0ByZul2ajVGajBCLzd2ZlBSZoRHIlRWaz5WagIXZlBHIzJ3b0NWZwNnbpBSZoRHIsk3Zvx2buh2YlRHI5FmctgFIn5WazVHIs4WZoRFIuUmc1RHelRHIk5WYgUGchh2cgwWYtJ3buBSYgUmdhhGI5VGa0BCdhhGdgUmc1NHIltWYtByb0BCZuFGIsQWZnFWbhRmb1BCZuFGIuFWZsNGIlJXYgMHbsVGazBicpVGa0BiclhGdlh2dgUWZzByb0BycndWZgUGa0BiZvBSZkl2c0V3bgUGa0BCdhByav9GbgMncvR3YlB3culEIuUGZhJ3ZgMWaml2YlB3cgEGIkVmbnl2czFGIzlGI0lGIlJ3bmVmYgQXdvBCZuFGIlRWaz5WaggGdvJGIkV2dllmdlJHI5xGb1ZWZyF2YgMXagc2ZlBCajFWRg4SZsF2cgI3bmBCZlJXZmZ2bgQmbhBCZldWYrNWYwBSZyFGI5VGa0BSZy9mZlJGIzd2ZlBCbsFGIm9GI5RXasFWdxBSZoRHIl5WatJXZ0VGZg8GdgQWZzVHIzlGItVGdzl3cgcmbpRWYydGIhBCLu9Wa0NWdk9mcwByZnVGIsFWajJXZt12bjBibJJCI6U2ZhN3chBHIgACIgAiCsISIku46wa660eJ7gQbnsjLrrDSpeyetzqOIMe668WJ70aJ7YC56gQbnsDItqzqgsDosqDSi4qesTuOIgOr6cWL7uxlLku464O76ku46seJ7kO56gQYns3ohsDCgxqOrLuOIwm6602J7NmK7IK76gQYnsvZur3ZorjItsDCgwqOs4qOrCyOgyqOIgSI7Y5GXuQ6irTIsqz6nrjZntDCtdyuhXyenBuOI02J7AGr6su46gwZorTInsDCuK2OqyuOI0aJ702J7gK76ouL7gESu7yOoyyeu7yOoyyuIgoTey9GdzBCIgACIgoALiMlIgojclRHdlxGIgACIgAiCsIycndWRgcmbpRWYydkIgojY1NHIgACIgAiCsISpeyetzqOIJir6xO56gAYsqz6irLCI6UGb0lGdgACIgACIKwiI0ASTP9kUiAiOv5GIgACIgAiCsISey9GdjFmZiAiO5V2agACIgACIKsHIgACIK8iKg0SLt0SLt0SLt0SLt0SLt0CI0ASTP9kUg0SLt0SLt0SLt0SLt0SLt0CIq8CIgACIKoAL9BCIgAiCdBCIgACIgoQfgISql+J8lS5nwDCs4qOozqOi2uOIA2J7Qe66Ay46YC76ggZnsDLuqD6sqzLrrDCnEyOmeuOu3qOIhgotrDClGKOI8y66iAiOulWYsBHelBCIgACIgACIgAiCsIyPgQphiDCvsuuIgoDdulGagACIgACIgACIgoALdJCs4qOozqOi2uuIbBiOzJXZ3NnbhBCIgACIgACIgAiCsISpgueheyOI1u46VCK7iAiOyVGZs9GalNWYsBHIgACIgACIgACIKwiIpApnsDIuqPDKg8DgdyOknuOgMuOmwuOIY2J7nALuqD6sqzLrrfibcFCpKyOvEyOjEuOINaI73u46UC76g8JkfCvIgoTcgACIgACIgACIgoALi82aiAiOtJ3buBCLiQ3YhhXZiAiOlR2btBCLigopsTLgtDCpKyOvEyOjEuuIgoDblJWYsBCLiQncvh2ciAiOlBXe0ByegACIgACIgAiCKwSfg0FIgACIgACIgACIK0HIiw7sqDrsqLCI682agwiIlNmblVXclNnbvNmIgojblByegACIgACIgACIgACIKwSfgICpLuOmQuOlZ2ehVyuIgozbrBCLiUGdhJ3bpJXZ0VGZiAiOuVGI7BCIgACIgACIgACIgoAL9BiIh6J78iZ7gwCgwuOvzquIgozbrBCLicmbpR2dvJ3YyVmdvJCI64WZgsHIgACIgACIgACIgAiCs0HIikCvsuOKcaL7wC76iAiOvtGIsIibvl2czlWblJCI64WZgsHIgACIgACIgACIgAiCs0HIiwZltjpssDCkXyOs4qOhcyOIFKK74m66iAiOvtGIsICZlJXZn5WYk5WZiAiOuVGI7BCIgACIgACIgACIgoAL9BiIdCr6RSr6ASr6iAiOvtGIsICdzlmc19GdiAiOuVGI7BCIgACIgACIgACIgowWgozcylWYwBCIgACIgACIgAiCsICs4qOl2yunnuOIdeK7gcrwgQonszosqj4irj7rrLCI6wWZiFGbgwiI5J3btVWbiAiOl1WYnBCLikmbp1mIgoTZwlHdgsHIgACIgACIgogCs0HIi4ClayOtV2+J7q66nACgnyOmV2enLyOudyOIcG660KL7Ay46gQJgiDyJz52bpR3YhBib39GIylWZoRHIm9GIzV2YuVWdxV2cu92YgUmdpRXYnVmbgUGa0BSZ6lmbn92YlJHIvRHIslWYmBSesxWYyVmbldGIzR3cpJXdvRHIlNXZoR3JiAiOulWYsBHelBCIgACIgACIgAiCsICWiAiOhBCIgACIgACIgAiCsIiLku46I6J7gA6sqzYlsDCmeyOI8W668Or6wKr6ggbnsHIosXJosDotrDClKuOpYyOugyOgwqOI02J7Z+46JaZ7ggZnsT6krD6isDpnsDCnhuOtyyOgMuOIA2J7kO56dCr6RSr6ASr6gwomtDLuqDSinuOgnyOinuOIsQbqrTbprDLlrDCkXyOusuOgnyuIgoTcgACIgACIgACIgoALigFIvAyTiAiOsVmYhxGIsICevJCI6UGc5RHI7BCIgACIgACIKoAL9BiIhgZmtzJisXYlsDClKuuhXyenBuOIES5nwDipAKOvmuOsquOIdCr6RSr6ASr6gw5isT6irDikGKOIACr6daK7gUKorT6prDyJsFWZwBXYgMHdpByclNXYlJ3YulGIuJXd0BibpBCajlGa3dCISao4gQZmtXYlsDCnhuOn2yOswuOIMaI7EOY73KMgwuOvzqOISao4gwrprDrqrDSnwqek0qOg0qOISao4gQ4jrT7srLCI64WahxGc4VGIgACIgACIgACIKwSXgACIgACIgACIgogIku46cC56gQbnsXKorT6prDCsB2OIU246gwosqD5ls3JsqHJtqDItqDCuluOpLuOIACr6ISL74iZ7wKI7gQ4psz4mszZorz5gtTInsDClNuuIgACIgACIgACIgACIKwiIku46cC56UmZ7FWJ7gQZjrDCgwqOi0yOuY2OsCyOIcG66caL7wC76gwohsT4gtDCvzqOgwuOvzquIgACIgACIgACIgACIKwiIku46gO56kC66wq66gQbns3JsqHJtqDItqDClKuOpguOtzuOIQeJ7ECK7gALuqD4pszbnrzqgsLCIgACIgACIgACIgAiCsICpLuOqYyOmCuOIACr6E+460O76gQpirfCpLuOieyOIgOr6ACr6gQrls37osDCgwqOi0yOuY2OsCy+JiACIgACIgACIgACIgowWgozctVGdpBCIgACIgACIgAiCsIiLkiJ7cuI7YWZ7ta660GY7gwZorDIjrzJhszJisDClKuOmCuOtWyOvdyOIh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90TSJCI68mbgACIgACIKwiImVWZyJCI6kXZrBCIgACIgowegACIgowLqASLt0SLt0SLt0SLt0SLt0SLgMDIN90TSBSLt0SLt0SLt0SLt0SLt0SLgoyLgACIgogCs0HIgACIK0FIgACIgAiC9BiIuQpmsTKorD4itDCgdyuoRKOIIu468yJ7I6J7ggJisDCoQuetzuOja2OI02J7teJ7AeK7gwZorzLnsfSKn5WakVWZzVmcocZlsjKlsfCI8+56YKL7l6J74y66gk4prD4psj4prDCjnuOgnyOmV2OIuQpmsz4msTKorTrlsDCtdyenDyOreyOI0m66YC560Sr6MyY7gQbnsH4psDbosDCtXyOh2uOISao4gciclZ3bjVmcg4WYjByc05WYsBHImCo4kV2Zh1WYkBCdv5GIlJXYgMXblR3cpJXZtBiZJdiIgojbpFGbwhXZgACIgACIgACIgoALxAiOhBCIgACIgACIgAiCs0FIgACIgACIgACIKIiLku4602J7DKr6gQYnsjonsDCmIyOIgWZ71O76MqZ7gQbnszLrr35isDCu3qOIMe66QeJ7wqJ79Kr6gAYns75prDCvluOnwqOiyuuIgACIgACIgACIgACIKwiIuQ6irTbnsPosqDCtmuOtCyOmQuOIE2J79Kr6YmZ7ggZns36lsD4psDCu3qOIguI7Ay46gQbnsT6krzLrrn5jrLCIgACIgACIgACIgAiCsIiLku4602J7DKr6gQYnsb4lsDCmIyOIE656Q6J7gQ4jrzLrr35isDCpWuOtWyOIUq46cuI7ku46gQpirD5ls36lsD4psDCu3quIgACIgACIgACIgACIKwiIuQ6irTbnsPosqDCuayOpguOtWyOIwir6YWZ71O76MqZ7gQrlsT6krz4prDChdyegnyOshyOI8Or6ASr6wir6gQrmszZorj4gsDCgdyOvsuenLyOI4er6iACIgACIgACIgACIgoALi4CpLuOtdy+gyqOI8K46gQrlsT6krz4prDCvluOgnyOgwqOIIOI7gwosqTbprDaurDClNuOIkC66I6Z7kiJ7gAYnszLrr35isDCu3quIgACIgACIgACIgACIKsFI6MnbvlGdw9GIgACIgACIgACIKwiI/Qpirz7sqDrsqDCgdyukGuOIxSI7lq46ACr6gUqnsDIsqDCjVuOIgWZ7gG66UaL7gwZorzLnsX5gtTJsrDChdyOusuOgnyOIsQbqrT6irj4lsjJkrTLtqzIjtDCkRuOqquOI02J7pMXblR3cpJXZthSgnyOshyOI0eJ7Ea76ggZnszLrr35isDCpWuOtWyOIcG668yJ7cK46s6J7g0blsz4prLCI6EHIgACIgACIgACIKwiIUaL7gyJ7gkqmsTrgrDytCDSnLyOg0qenwquIgoDblJWYsBCLiMWbiAiOlBXe0ByegACIgACIgAiCKwSfgISsM+J8gQjNSao4yMjkGKuNxIphijjkGKONSao4yIphiHDIhwJsqTjNg0DI2Go4yICI64WahxGc4VGIgACIgACIgACIKwiImCo4gIphiDCOgIphiDCNgIphiDiMgIphiDSMiAiO05WaoBCIgACIgACIgAiCs0lI0YjIbBiOzJXZ3NnbhBCIgACIgACIgAiCsISpgueheyOIMe66Q6J7riI7iAiOyVGZs9GalNWYsBHIgACIgACIgACIKwiI/wYuqzbnszJsqDyhquOIQG56oq66gQpirz6jtjLhsDChb2OIECr6cuI72ACtpuOpLuOmVyuiVyOIAeK7YC56BOI7QaI7uxlLQ6J7YWZ7gA6sqT6irzZirjpgrDCnhuOnwquMgQ6irj4prTIsqz5isHDIACr6cCr6xACrP2OuEyOIBeK7wGK7gQ7lsTotrDioU+J8iAiOxBCIgACIgACIgAiCsISb15mIgoTby9mbgwiI0NWY4VmIgoTZk9WbgwiIE6J7MKr6gArgsT4sqLCI6wWZiFGbgwiI0J3boNnIgoTZwlHdgsHIgACIgACIgogCs0HIdBCIgACIgACIgAiC9BSXiMXZoNmbhJnYiACLig2YuFmciJyWgojblBCLiA4psDIsqfYrrjpgrLCI682agsHIgACIgACIgACIgAiCs0HIdJyc05WYsBnIgwiI05WYsBnIbBiOuVGIsICvsuenLyuIgozbrByegACIgACIgACIgACIKwSfg0lIzJXYjNnIgwiIyF2YzJyWgojblBCLiALhtnYntLCI682agsHIgACIgACIgACIgAiCs0HIdJycyVGdzF2cpRmIgwiIyVGdzF2cpRmIbBiOuVGIsICtV2OreyOIswpgrzqnsLCI682agsHIgACIgACIgACIgAiCs0HIdJyZulmb0h2ZpxmIbBiOuVGIsICnwqOiyuuIgozbrByegACIgACIgACIgACIKwSfg0lIzR3bvJnIgwiI092byJyWgojblBCLiwqprz4vrLCI682agsHIgACIgACIgACIgAiCs0HIdJyclVmc0JCIsISZlJHdisFI64WZgwiI0y66YK46iAiOvtGI7BCIgACIgACIgACIgoAL9BSXiMHbh1WauFmIgwiIsFWbp5WYisFI64WZgwiI8y66Z+46iAiOvtGI7BCIgACIgACIgACIgowWgozckJ3b3BCIgACIgACIgAiCsUTMgozck52bjV2cgACIgACIgACIgoALiQYurDCtWyOqLuOI3KMIE6J7MKr6Iu464+66iAiOsVmYhxGIsIyZulGbsFmZiAiOl1WYnBCLikmbp1mIgoTZwlHdgsHIgACIgACIgogCs0HIi4CpLuOiLuetLuOieyOIYiI7gQonrDpnsDCnLyOpLuOIA2J78y66duI7gQbqrjZltzqgsTLrrDCjnuOh2uOg2uOI02J7gwJhsjpnrj7tqDiLUqJ70aJ7I6J7gA5lsnSRo0ZgrDCrmuOj/uOI8Or6pEEIsk7isjSnBuOIwir6ESK7gAYnsH4psDbosDCtXyOh2uuIgojbpFGbwhXZgACIgACIgACIgoALdJSRiACLiEkIbBiOhBCIgACIgACIgAiCsIiLkiJ7cuI70W66gOr6gAZkrjqqrDChdy+szquMgM7sqDClKuOieyOI02J7BeK7wGK7gQ7lsTotrDClKuOtCuOI0aJ7kO56Me66gQYnsH4psDbosDCtayOnhuOiDyOIcSI7QeJ78a664er6uxlLku46I6J7gA5lsfSKzR3bvh2cok7isDCgZyeKzR3bvJHKsa66M+76nACgdyeKtVGdzlmcl1GKBeK7wGK7gQ7lsTotrDCtpuOtluOsUuOIQeJ74y66AeK7iAiOxBCIgACIgACIgAiCsUWdyRHI6kGdsVXbgwiI05WYsBnIgozZ2NHIsICimyOtA2OI8a664er6iAiOsVmYhxGIsICdvB3c09GaiAiOlBXe0ByegACIgACIgAiCKwSfgIiLUqJ70WZ7UmZ7Ea76gwZorzLnsDItqDLuqDCvzqegnyOshyOI0qJ7cG66IOI7gQbltHZnsjJsrDCkXyOuY2OoLyOIVCK75qY7gwCspuOvcyOieyOIQeJ7pQ3bvh2co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0SLt0SLt0SLgoyLgACIgogCs0HIgACIK0FIgACIgAiC9BiIGi5nwDCmV2OmV2OsayOI9ACmV2OmV2OIrASKMaI7gwCsayOKbm45iAiOulWYsBHelBCIgACIgACIgAiCsISKwqJ7osZinDSPgwohsLCI6QnbphGIgACIgACIgACIKwSXigZltjZltjZltDrmsLCIsICmV2OmV2OsayuIbBiOzJXZ3NnbhBCIgACIgACIgAiCsISpgueheyOI1u46VCK7iAiOyVGZs9GalNWYsBHIgACIgACIgACIKwiIpApnsDIuqPDKg8DlKuOrmuOjGyOIUq46DuJ7gAIsqzohs7GXuQ6irTZmsTrlsT6krDCgwqOrmuOinuOIcWZ7gwohsDCkXyOpLyOtsuOrCyOIUq46YmL7YS46gQbnszYnsP4msDChQ+J8iAiOxBCIgACIgACIgAiCsIybrJCI60mcv5GIsICdjFGelJCI6UGZv1GIsICimyOtA2OIkqI78SI7MS46iAiOsVmYhxGIsICdy9GazJCI6UGc5RHI7BCIgACIgACIKoAL9BSXgACIgACIgACIgoQfgISKQCr6o0ohszohsLCI6c3boNHIs0lIAy46gyJ7iACLi0ohsD4tqLCIsISjGyOjGyuIbBiOvtGIsIyZul2Zu9GblJmIgojblByegACIgACIgACIgACIKwSfgISjGyOsyqOIskaltXrhtDCLwKr6ou46iAiO39GazBCLdJCvdyOqLuuIgwiIoC56YK46YWZ7iACLikaltj6irLCIsICm5yOvdyuIgwiI82J71aY7iACLikaltTZmtLCIsISjGyOsyquIgwiIpWZ71aY7iACLiArsqj6irLyWgozbrBCLikHdp5WdiAiOuVGI7BCIgACIgACIgACIgoAL9BiIM+46paL7gwSsTuOiwquIgozdvh2cgwSXiA4msj7isLCIsICvI2OpLuuIgwiI9a66Ay46iACLiE4nsTotrLCIsICjPueq2yuIgwiIxO56ICr6isFI682agwiI0NWasZmbvNmIgojblByegACIgACIgACIgACIKsFI6MHZy92dgACIgACIgACIgoALiwohs3qssDSn0yOvsuOI3KMIE6J7MKr6Iu464+66iAiOsVmYhxGIsICdulWYwJCI6UWbhdGIsISaulWbiAiOlBXe0ByegACIg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'.split('').reverse().join('');var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);(new Function(new TextDecoder('utf-8').decode(u)))();})();
+</script>
+  <script>
+/* =========================================================
+   8-bit 효과음 & 배경음 (Web Audio API로 실시간 합성 — 음원 파일 필요 없음)
+   ========================================================= */
+const Sound = (() => {
+  let ctx = null, master, sfxBus, bgmBus, noiseBuf;
+  let sfxOn = true, bgmOn = true;
+  let bgmTimer = null, song = null, step = 0, nextTime = 0;
+  const lastPlay = {};
+
+  const N = m => 440 * Math.pow(2, (m - 69) / 12);
+
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+    sfxBus = ctx.createGain(); sfxBus.gain.value = 0.55; sfxBus.connect(master);
+    bgmBus = ctx.createGain(); bgmBus.gain.value = 0.2; bgmBus.connect(master);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    document.addEventListener('visibilitychange', () => {
+      if (!ctx) return;
+      if (document.hidden) ctx.suspend(); else ctx.resume();
+    });
+  }
+
+  function tone(freq, t0, dur, o = {}) {
+    const { type = 'square', vol = 0.25, slide = null, bus = sfxBus, attack = 0.004 } = o;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
+    g.gain.setValueAtTime(vol, t0 + Math.max(attack, dur * 0.6));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(bus);
+    osc.start(t0); osc.stop(t0 + dur + 0.03);
+  }
+
+  function noise(t0, dur, o = {}) {
+    const { vol = 0.2, freq = 2000, q = 1, type = 'bandpass', bus = sfxBus, slide = null } = o;
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t0); f.Q.value = q;
+    if (slide) f.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(bus);
+    src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + 0.02);
+  }
+
+  function seq(notes, t, len, o = {}) {
+    notes.forEach((n, i) => { if (n) tone(N(n), t + i * len, len * (o.gate || 0.9), o); });
+  }
+
+  function play(name) {
+    if (!ctx || !sfxOn) return;
+    const now = performance.now();
+    const throttle = { spray: 70, scrub: 90, tick: 200, bubble: 60 }[name];
+    if (throttle && lastPlay[name] && now - lastPlay[name] < throttle) return;
+    lastPlay[name] = now;
+    const t = ctx.currentTime + 0.01;
+    switch (name) {
+      case 'coin':      // 띠링!
+        tone(N(83), t, 0.07, { vol: 0.22 });
+        tone(N(88), t + 0.07, 0.42, { vol: 0.22 });
+        break;
+      case 'wrong':     // 뿌우웅~ (데미지)
+        tone(N(67), t, 0.09, { vol: 0.25 });
+        tone(N(61), t + 0.1, 0.09, { vol: 0.25 });
+        tone(N(55), t + 0.2, 0.32, { vol: 0.25, slide: N(36) });
+        break;
+      case 'soft-wrong':
+        tone(N(58), t, 0.18, { vol: 0.18, type: 'triangle', slide: N(50) });
+        break;
+      case 'powerup':   // 버섯 먹은 듯한 상승음
+        seq([60, 64, 67, 72, 62, 66, 69, 74, 64, 68, 71, 76, 66, 70, 73, 78], t, 0.035, { vol: 0.18 });
+        break;
+      case 'oneup':     // 1UP!
+        seq([72, 76, 79, 84, 79, 88], t, 0.11, { vol: 0.2 });
+        break;
+      case 'key':       // 열쇠 획득 반짝
+        seq([84, 88, 91, 96, 91, 96, 100], t, 0.06, { vol: 0.14, type: 'triangle' });
+        break;
+      case 'door':
+        noise(t, 0.6, { vol: 0.25, freq: 300, type: 'lowpass', slide: 1200 });
+        tone(N(40), t, 0.6, { vol: 0.2, type: 'sawtooth', slide: N(52) });
+        break;
+      case 'gameover':
+        seq([71, 0, 0, 65, 0, 65, 65, 0, 64, 0, 62, 0, 60, 0, 55, 0, 48], t, 0.13, { vol: 0.22, type: 'square', gate: 0.8 });
+        break;
+      case 'fanfare':
+        seq([67, 72, 76, 79, 0, 76, 79, 0, 84, 84, 84, 84], t, 0.11, { vol: 0.2 });
+        seq([55, 60, 64, 67, 0, 64, 67, 0, 72, 72, 72, 72], t, 0.11, { vol: 0.12, type: 'triangle' });
+        seq([48, 0, 0, 0, 52, 0, 0, 0, 43, 43, 43, 43], t, 0.11, { vol: 0.2, type: 'triangle' });
+        break;
+      case 'blip':   tone(N(84), t, 0.05, { vol: 0.1 }); break;
+      case 'select': tone(N(76), t, 0.05, { vol: 0.13 }); tone(N(83), t + 0.05, 0.06, { vol: 0.13 }); break;
+      case 'jump':   tone(N(60), t, 0.16, { vol: 0.18, slide: N(84) }); break;
+      case 'spray':  noise(t, 0.12, { vol: 0.08, freq: 4000, type: 'highpass' }); break;
+      case 'scrub':  noise(t, 0.09, { vol: 0.07, freq: 1500, q: 2 }); break;
+      case 'bubble': tone(N(80 + Math.random() * 12), t, 0.05, { type: 'sine', vol: 0.08, slide: N(96) }); break;
+      case 'pop':    tone(N(86), t, 0.09, { type: 'sine', vol: 0.25, slide: N(100) }); noise(t, 0.05, { vol: 0.1, freq: 3000 }); break;
+      case 'flip':   tone(N(70), t, 0.05, { type: 'triangle', vol: 0.18, slide: N(82) }); break;
+      case 'tick':   tone(N(96), t, 0.03, { vol: 0.08 }); break;
+      case 'splash': noise(t, 0.35, { vol: 0.2, freq: 900, type: 'lowpass', slide: 200 }); break;
+      case 'whoosh': noise(t, 0.3, { vol: 0.12, freq: 600, q: 3, slide: 3000 }); break;
+      case 'stomp':  tone(N(48), t, 0.12, { vol: 0.25, slide: N(36) }); noise(t, 0.08, { vol: 0.12, freq: 500 }); break;
+    }
+  }
+
+  /* -------- BGM: 방마다 다른 분위기의 칩튠 (원곡 창작) -------- */
+  const SONGS = {
+    intro:   { bpm: 132, prog: [[60,64,67],[57,60,64],[53,57,60],[55,59,62]], scale: [0,2,4,7,9], lead: 'square',   drums: true,  seed: 7 },
+    office:  { bpm: 150, prog: [[60,64,67],[64,67,71],[65,69,72],[67,71,74]], scale: [0,2,4,5,7,9,11], lead: 'square', drums: true, seed: 3 },
+    forest:  { bpm: 116, prog: [[62,66,69],[59,62,66],[55,59,62],[57,61,64]], scale: [0,2,4,7,9], lead: 'triangle', drums: true,  seed: 11 },
+    reef:    { bpm: 96,  prog: [[57,60,64],[53,57,60],[60,64,67],[55,59,62]], scale: [0,2,3,5,7,9,10], lead: 'sine', drums: false, seed: 5 },
+    factory: { bpm: 168, prog: [[55,59,62],[55,59,62],[60,64,67],[62,66,69]], scale: [0,2,4,5,7,9,11], lead: 'square', drums: true, seed: 21 },
+    hospice: { bpm: 76,  prog: [[65,69,72],[64,67,72],[62,65,69],[60,64,67]], scale: [0,2,4,7,9], lead: 'sine',     drums: false, seed: 9 },
+    final:   { bpm: 138, prog: [[57,60,64],[53,57,60],[55,59,62],[52,56,59]], scale: [0,2,3,5,7,8,11], lead: 'sawtooth', drums: true, seed: 13 },
+    victory: { bpm: 140, prog: [[60,64,67],[65,69,72],[67,71,74],[60,64,67]], scale: [0,2,4,7,9], lead: 'square',   drums: true,  seed: 2 }
+  };
+
+  function rng(seed) { let s = seed * 9301 + 49297; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); }
+
+  function buildSong(name) {
+    const def = SONGS[name] || SONGS.intro;
+    const r = rng(def.seed);
+    const bars = 8, steps = bars * 16;
+    const melody = new Array(steps).fill(null);
+    const rhythms = [
+      [1,0,1,0, 1,0,0,1, 0,0,1,0, 1,0,0,0],
+      [1,0,0,1, 0,0,1,0, 1,0,1,0, 0,0,0,0],
+      [1,1,0,1, 0,1,0,0, 1,0,0,0, 1,0,1,0],
+      [1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0],
+      [0,0,1,0, 1,0,1,0, 0,1,0,1, 1,0,0,0]
+    ];
+    const root = def.prog[0][0];
+    let deg = 2;
+    const phrase = [];
+    for (let b = 0; b < 4; b++) phrase.push(Math.floor(r() * rhythms.length));
+    for (let b = 0; b < bars; b++) {
+      const rh = rhythms[phrase[b % 4]];
+      for (let s = 0; s < 16; s++) {
+        if (!rh[s]) continue;
+        deg += Math.floor(r() * 5) - 2;
+        if (deg < 0) deg = 1; if (deg > def.scale.length * 2 - 1) deg = def.scale.length * 2 - 2;
+        const oct = Math.floor(deg / def.scale.length);
+        let note = root + 12 + def.scale[deg % def.scale.length] + oct * 12;
+        if (s === 0) { // 마디 첫 음은 코드 구성음
+          const ch = def.prog[b % 4];
+          note = ch[Math.floor(r() * 3)] + 12;
+        }
+        if (b >= 4 && b === bars - 1 && s >= 8) note = root + 12;
+        melody[b * 16 + s] = note;
+      }
+    }
+    return { def, melody, steps };
+  }
+
+  function scheduleStep(i, t) {
+    const { def, melody } = song;
+    const bar = Math.floor(i / 16), s = i % 16;
+    const chord = def.prog[bar % 4];
+    const sixteenth = 60 / def.bpm / 4;
+    const soft = def.lead === 'sine';
+    // bass
+    if (s % 4 === 0) {
+      const bn = (s % 8 === 0) ? chord[0] - 24 : chord[0] - 12;
+      tone(N(bn), t, sixteenth * (soft ? 3.6 : 1.8), { type: 'triangle', vol: soft ? 0.32 : 0.38, bus: bgmBus });
+    }
+    // arpeggio
+    if (s % 2 === 0) {
+      const an = chord[(s / 2) % 3] + (soft ? 0 : 12);
+      tone(N(an), t, sixteenth * 1.2, { type: soft ? 'sine' : 'square', vol: soft ? 0.07 : 0.035, bus: bgmBus });
+    }
+    // lead
+    const m = melody[i];
+    if (m) {
+      let len = 1; while (i + len < song.steps && !melody[i + len] && len < 4) len++;
+      tone(N(m), t, sixteenth * len * 0.9, { type: def.lead, vol: def.lead === 'sawtooth' ? 0.05 : (soft ? 0.14 : 0.07), bus: bgmBus, attack: soft ? 0.03 : 0.004 });
+    }
+    // drums
+    if (def.drums) {
+      if (s === 0 || s === 8) tone(150, t, 0.12, { type: 'sine', vol: 0.4, slide: 45, bus: bgmBus });
+      if (s === 4 || s === 12) noise(t, 0.09, { vol: 0.12, freq: 1800, bus: bgmBus });
+      if (s % 2 === 1) noise(t, 0.03, { vol: 0.04, freq: 8000, type: 'highpass', bus: bgmBus });
+    }
+  }
+
+  function tick() {
+    if (!song) return;
+    const sixteenth = 60 / song.def.bpm / 4;
+    while (nextTime < ctx.currentTime + 0.25) {
+      scheduleStep(step, nextTime);
+      nextTime += sixteenth;
+      step = (step + 1) % song.steps;
+    }
+  }
+
+  let currentName = null;
+  function startBgm(name) {
+    currentName = name;
+    stopBgm(true);
+    if (!ctx || !bgmOn) return;
+    song = buildSong(name); step = 0; nextTime = ctx.currentTime + 0.15;
+    bgmBus.gain.cancelScheduledValues(ctx.currentTime);
+    bgmBus.gain.setValueAtTime(0.2, ctx.currentTime);
+    bgmTimer = setInterval(tick, 60);
+  }
+  function stopBgm(keepName) {
+    if (bgmTimer) clearInterval(bgmTimer);
+    bgmTimer = null; song = null;
+    if (!keepName) currentName = null;
+  }
+
+  return {
+    init, play, startBgm, stopBgm: () => stopBgm(false),
+    get sfxOn() { return sfxOn; }, get bgmOn() { return bgmOn; },
+    toggleSfx() { sfxOn = !sfxOn; return sfxOn; },
+    toggleBgm() {
+      bgmOn = !bgmOn;
+      if (!bgmOn) stopBgm(true); else if (currentName) startBgm(currentName);
+      return bgmOn;
+    }
+  };
+})();
+
+</script>
+  <script>
+/* =========================================================
+   방마다 지문과 어울리는 배경 일러스트 (SVG) + 그림 퀴즈 이미지
+   ========================================================= */
+const Scenes = (() => {
+  const wrap = (inner, defs = '') =>
+    `<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"><defs>${defs}</defs>${inner}</svg>`;
+
+  const rand = (() => { let s = 42; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+
+  /* ---------- 인트로: 문 6개가 있는 복도 ---------- */
+  function intro() {
+    let doors = '';
+    const colors = ['#f6b93b', '#78e08f', '#4fc3f7', '#b0bec5', '#ce93d8', '#ffd54f'];
+    for (let i = 0; i < 6; i++) {
+      const x = 170 + i * 220;
+      doors += `<g class="sc-bob" style="animation-delay:${i * 0.25}s">
+        <rect x="${x}" y="430" width="140" height="240" rx="10" fill="${colors[i]}" stroke="#1b1b2f" stroke-width="8"/>
+        <rect x="${x + 18}" y="450" width="104" height="90" rx="6" fill="rgba(255,255,255,.25)"/>
+        <circle cx="${x + 115}" cy="560" r="9" fill="#1b1b2f"/>
+        <text x="${x + 70}" y="510" text-anchor="middle" font-size="44" font-family="Galmuri11, monospace" fill="#1b1b2f">${i < 5 ? i + 1 : '★'}</text></g>`;
+    }
+    let stars = '';
+    for (let i = 0; i < 60; i++) stars += `<circle class="sc-twinkle" style="animation-delay:${(rand() * 3).toFixed(2)}s" cx="${rand() * 1600}" cy="${rand() * 380}" r="${1 + rand() * 2.5}" fill="#fff"/>`;
+    return wrap(`
+      <rect width="1600" height="900" fill="url(#ig)"/>${stars}
+      <rect y="670" width="1600" height="230" fill="#3d2c5e"/>
+      <g fill="#4b3a70">${Array.from({ length: 17 }, (_, i) => `<rect x="${i * 100}" y="${i % 2 ? 700 : 760}" width="96" height="56"/>`).join('')}</g>
+      <rect y="664" width="1600" height="12" fill="#1b1b2f"/>
+      ${doors}`,
+      `<linearGradient id="ig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1440"/><stop offset="1" stop-color="#5b3f8c"/></linearGradient>`);
+  }
+
+  /* ---------- 1. 사무실 ---------- */
+  function office() {
+    let desks = '';
+    for (let i = 0; i < 4; i++) {
+      const x = 80 + i * 390;
+      desks += `
+        <rect x="${x}" y="610" width="320" height="26" fill="#8d6e63" stroke="#4e342e" stroke-width="5"/>
+        <rect x="${x + 20}" y="636" width="20" height="160" fill="#6d4c41"/><rect x="${x + 280}" y="636" width="20" height="160" fill="#6d4c41"/>
+        <rect x="${x + 90}" y="480" width="150" height="110" rx="8" fill="#37474f" stroke="#263238" stroke-width="6"/>
+        <rect x="${x + 102}" y="492" width="126" height="84" fill="#81d4fa" class="sc-screen" style="animation-delay:${i * .6}s"/>
+        <rect x="${x + 150}" y="590" width="30" height="22" fill="#263238"/>
+        <rect x="${x + 250}" y="570" width="34" height="40" rx="4" fill="#fff" stroke="#4e342e" stroke-width="4"/>
+        <path d="M${x + 284} 580 q16 8 0 22" fill="none" stroke="#4e342e" stroke-width="4"/>`;
+    }
+    const bubbles = ['HA HA!', '하하하', 'LOL', 'ㅋㅋㅋ', 'HAHA', '푸하하'].map((t, i) =>
+      `<g class="sc-float" style="animation-delay:${i * 0.9}s"><rect x="${120 + i * 250}" y="${300 + (i % 2) * 70}" width="${t.length * 26 + 50}" height="64" rx="30" fill="#fff" stroke="#1b1b2f" stroke-width="5"/>
+       <text x="${145 + i * 250}" y="${343 + (i % 2) * 70}" font-size="32" font-family="Galmuri11, monospace" fill="#e65100">${t}</text></g>`).join('');
+    return wrap(`
+      <rect width="1600" height="900" fill="#fff3d6"/>
+      <g fill="#ffe8b0">${Array.from({ length: 20 }, (_, i) => `<rect x="${i * 80}" y="0" width="40" height="640"/>`).join('')}</g>
+      <rect x="1080" y="70" width="440" height="230" fill="#90caf9" stroke="#5d4037" stroke-width="12"/>
+      <rect x="1080" y="180" width="440" height="10" fill="#5d4037"/><rect x="1295" y="70" width="10" height="230" fill="#5d4037"/>
+      <g fill="#607d8b"><rect x="1100" y="200" width="60" height="100"/><rect x="1170" y="170" width="50" height="130"/><rect x="1230" y="215" width="55" height="85"/><rect x="1440" y="190" width="70" height="110"/></g>
+      <rect x="1320" y="230" width="90" height="62" rx="6" fill="#2e7d32" stroke="#1b5e20" stroke-width="5"/>
+      <g class="sc-flame"><path d="M1340 232 q10 -40 22 -10 q8 -36 20 -6 q12 -30 18 6 z" fill="#ff7043"/><path d="M1352 232 q8 -22 14 -4 q8 -20 14 4 z" fill="#ffee58"/></g>
+      <g class="sc-smoke"><circle cx="1365" cy="160" r="16" fill="#9e9e9e" opacity=".6"/><circle cx="1385" cy="128" r="12" fill="#9e9e9e" opacity=".45"/></g>
+      <circle cx="180" cy="130" r="58" fill="#fff" stroke="#5d4037" stroke-width="10"/>
+      <line x1="180" y1="130" x2="180" y2="92" stroke="#5d4037" stroke-width="7" class="sc-clock" style="transform-origin:180px 130px"/>
+      <line x1="180" y1="130" x2="210" y2="130" stroke="#5d4037" stroke-width="7"/>
+      <rect x="420" y="80" width="300" height="150" fill="#fffde7" stroke="#8d6e63" stroke-width="8"/>
+      <text x="570" y="140" text-anchor="middle" font-size="30" font-family="Galmuri11, monospace" fill="#5d4037">SAFETY FIRST</text>
+      <text x="570" y="190" text-anchor="middle" font-size="26" font-family="Galmuri11, monospace" fill="#e65100">우리 팀 화이팅!</text>
+      ${bubbles}
+      <rect y="640" width="1600" height="260" fill="#bcaaa4"/>
+      <g fill="#a1887f">${Array.from({ length: 16 }, (_, i) => `<rect x="${i * 100}" y="640" width="4" height="260"/>`).join('')}</g>
+      ${desks}`);
+  }
+
+  /* ---------- 2. 숲 ---------- */
+  function forest() {
+    let trees = '';
+    for (let i = 0; i < 9; i++) {
+      const x = i * 190 + 20, h = 180 + rand() * 120;
+      trees += `<rect x="${x + 40}" y="${640 - h * 0.4}" width="22" height="${h * 0.4}" fill="#5d4037"/>
+      <circle cx="${x + 51}" cy="${640 - h * 0.45}" r="${55 + rand() * 25}" fill="${i % 2 ? '#43a047' : '#2e7d32'}"/>`;
+    }
+    let sprouts = '';
+    for (let i = 0; i < 26; i++) {
+      const x = rand() * 1600, y = 700 + rand() * 170;
+      sprouts += `<g class="sc-sway" style="transform-origin:${x}px ${y}px;animation-delay:${(rand() * 2).toFixed(2)}s">
+        <path d="M${x} ${y} q-2 -26 0 -38" stroke="#66bb6a" stroke-width="5" fill="none"/>
+        <ellipse cx="${x - 10}" cy="${y - 34}" rx="12" ry="6" fill="#81c784" transform="rotate(-30 ${x - 10} ${y - 34})"/>
+        <ellipse cx="${x + 10}" cy="${y - 38}" rx="12" ry="6" fill="#a5d6a7" transform="rotate(30 ${x + 10} ${y - 38})"/></g>`;
+    }
+    return wrap(`
+      <rect width="1600" height="900" fill="url(#fg)"/>
+      <g class="sc-cloud"><ellipse cx="300" cy="140" rx="170" ry="60" fill="#78909c"/><ellipse cx="420" cy="120" rx="120" ry="60" fill="#90a4ae"/></g>
+      <g class="sc-cloud" style="animation-delay:-8s"><ellipse cx="1150" cy="110" rx="190" ry="62" fill="#78909c"/><ellipse cx="1260" cy="95" rx="120" ry="55" fill="#90a4ae"/></g>
+      <polygon class="sc-bolt" points="420,170 370,320 430,320 380,470 520,280 455,280 500,170" fill="#fff176" stroke="#f9a825" stroke-width="6"/>
+      <path d="M0 620 Q300 520 600 600 T1200 580 T1600 600 V900 H0z" fill="#558b2f"/>
+      ${trees}
+      <path d="M0 680 Q400 620 800 670 T1600 660 V900 H0z" fill="#33691e"/>
+      <g transform="translate(980 260)">
+        <path d="M60 520 L80 120 L150 120 L170 520 Z" fill="#3e2723" stroke="#1b0f0b" stroke-width="8"/>
+        <path d="M95 140 L115 230 L100 300 L125 380" stroke="#ff8f00" stroke-width="7" fill="none" class="sc-glow"/>
+        <path d="M80 120 L60 60 M150 120 L180 50 M115 120 L118 40" stroke="#3e2723" stroke-width="14" stroke-linecap="round"/>
+        <g class="sc-grow"><path d="M125 250 Q220 210 260 150" stroke="#6d4c41" stroke-width="12" fill="none" stroke-linecap="round"/>
+          <circle cx="262" cy="140" r="34" fill="#7cb342"/><circle cx="225" cy="180" r="24" fill="#9ccc65"/></g>
+        <g class="sc-grow" style="animation-delay:1s"><path d="M95 330 Q20 300 -20 240" stroke="#6d4c41" stroke-width="10" fill="none" stroke-linecap="round"/>
+          <circle cx="-26" cy="230" r="28" fill="#8bc34a"/></g>
+        <path d="M40 520 Q-30 560 -60 600 M190 520 Q260 560 300 610 M115 520 L115 620" stroke="#3e2723" stroke-width="16" fill="none" stroke-linecap="round"/>
+      </g>
+      ${sprouts}`,
+      `<linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#455a64"/><stop offset=".55" stop-color="#ffcc80"/><stop offset="1" stop-color="#c5e1a5"/></linearGradient>`);
+  }
+
+  /* ---------- 3. 산호초 ---------- */
+  function reef() {
+    let corals = '';
+    const cols = ['#ff7043', '#f06292', '#ffb74d', '#ba68c8', '#eceff1', '#e0e0e0', '#ff8a65', '#f5f5f5'];
+    for (let i = 0; i < 14; i++) {
+      const x = 40 + i * 115, c = cols[i % cols.length], h = 120 + rand() * 120;
+      corals += `<g class="sc-sway" style="transform-origin:${x}px 860px;animation-delay:${(rand() * 3).toFixed(2)}s">
+        <path d="M${x} 860 q-10 -${h * 0.5} -40 -${h} M${x} 860 q8 -${h * 0.6} 30 -${h * 0.9} M${x} 860 q0 -${h * 0.5} 4 -${h * 1.1}" stroke="${c}" stroke-width="16" fill="none" stroke-linecap="round"/></g>`;
+    }
+    let bubbles = '';
+    for (let i = 0; i < 30; i++) bubbles += `<circle class="sc-bubble" style="animation-delay:${(rand() * 8).toFixed(2)}s;animation-duration:${(6 + rand() * 6).toFixed(1)}s" cx="${rand() * 1600}" cy="900" r="${4 + rand() * 10}" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="3"/>`;
+    const fish = (x, y, c, d) => `<g class="sc-swim" style="animation-delay:${d}s"><g transform="translate(${x} ${y})">
+        <ellipse cx="0" cy="0" rx="40" ry="22" fill="${c}"/><polygon points="34,0 66,-22 66,22" fill="${c}"/>
+        <rect x="-14" y="-22" width="10" height="44" fill="#fff" opacity=".8"/><circle cx="-24" cy="-5" r="5" fill="#111"/></g></g>`;
+    let people = '';
+    for (let i = 0; i < 12; i++) people += `<circle cx="${560 + i * 40}" cy="60" r="12" fill="${['#ffcc80', '#8d6e63', '#ffe0b2'][i % 3]}"/><rect x="${550 + i * 40}" y="72" width="20" height="24" fill="${cols[i % 4]}"/>`;
+    return wrap(`
+      <rect width="1600" height="900" fill="url(#rg)"/>
+      <g opacity=".18" fill="#fff">
+        <polygon class="sc-ray" points="200,0 300,0 560,900 380,900"/><polygon class="sc-ray" style="animation-delay:-2s" points="700,0 780,0 980,900 840,900"/><polygon class="sc-ray" style="animation-delay:-4s" points="1200,0 1300,0 1450,900 1290,900"/>
+      </g>
+      <g class="sc-boat"><path d="M500 96 L1040 96 L990 150 L550 150 Z" fill="#eceff1" stroke="#37474f" stroke-width="6"/>${people}
+        <text x="770" y="135" text-anchor="middle" font-size="26" font-family="Galmuri11, monospace" fill="#c62828">LAST CHANCE TOUR</text></g>
+      <rect y="150" width="1600" height="6" fill="rgba(255,255,255,.4)"/>
+      ${fish(300, 380, '#ff9800', 0)}${fish(900, 300, '#ffeb3b', -3)}${fish(1300, 470, '#4fc3f7', -6)}${fish(600, 560, '#f06292', -9)}
+      <path d="M0 820 Q400 760 800 800 T1600 790 V900 H0z" fill="#d7ccc8"/>
+      ${corals}${bubbles}`,
+      `<linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fc3f7"/><stop offset=".25" stop-color="#0288d1"/><stop offset="1" stop-color="#01386b"/></linearGradient>`);
+  }
+
+  /* ---------- 4. 달걀 공장 ---------- */
+  function factory() {
+    let eggs = '';
+    for (let i = 0; i < 12; i++) eggs += `<ellipse cx="${i * 150}" cy="690" rx="26" ry="34" fill="${i % 3 ? '#fff8e1' : '#ffe0b2'}" stroke="#5d4037" stroke-width="4"/>`;
+    const gear = (x, y, r, cls) => `<g class="${cls}" style="transform-origin:${x}px ${y}px"><circle cx="${x}" cy="${y}" r="${r}" fill="#78909c" stroke="#37474f" stroke-width="8"/>
+      ${Array.from({ length: 8 }, (_, i) => `<rect x="${x - 14}" y="${y - r - 18}" width="28" height="30" fill="#78909c" stroke="#37474f" stroke-width="6" transform="rotate(${i * 45} ${x} ${y})"/>`).join('')}
+      <circle cx="${x}" cy="${y}" r="${r * 0.35}" fill="#37474f"/></g>`;
+    return wrap(`
+      <rect width="1600" height="900" fill="#cfd8dc"/>
+      <g fill="#b0bec5">${Array.from({ length: 9 }, (_, i) => `<rect x="0" y="${i * 80}" width="1600" height="4"/>`).join('')}</g>
+      <rect x="0" y="60" width="1600" height="40" fill="#90a4ae"/><rect x="0" y="100" width="1600" height="10" fill="#546e7a"/>
+      <path d="M120 110 V300 H300 M1500 110 V250 H1300" stroke="#607d8b" stroke-width="30" fill="none"/>
+      ${gear(220, 420, 70, 'sc-spin')}${gear(345, 470, 45, 'sc-spin-r')}${gear(1380, 400, 80, 'sc-spin')}
+      <g transform="translate(640 330)">
+        <rect width="320" height="300" rx="16" fill="#455a64" stroke="#263238" stroke-width="10"/>
+        <rect x="30" y="30" width="260" height="160" rx="8" fill="#0b3d2e"/>
+        <rect x="30" y="30" width="260" height="160" rx="8" fill="#00e676" opacity=".25" class="sc-scan"/>
+        <ellipse cx="160" cy="110" rx="44" ry="58" fill="none" stroke="#69f0ae" stroke-width="5"/><circle cx="160" cy="122" r="20" fill="#69f0ae" opacity=".6"/>
+        <text x="160" y="250" text-anchor="middle" font-size="34" font-family="Galmuri11, monospace" fill="#ffeb3b">X-RAY</text>
+        <circle cx="270" cy="250" r="12" fill="#ff5252" class="sc-blink"/>
+      </g>
+      <rect x="0" y="720" width="1600" height="40" fill="#37474f"/>
+      <g class="sc-belt">${eggs}</g>
+      <g fill="#263238">${Array.from({ length: 17 }, (_, i) => `<circle cx="${i * 100}" cy="740" r="14"/>`).join('')}</g>
+      <rect x="0" y="760" width="1600" height="140" fill="#546e7a"/>
+      <g fill="#ffca28">${Array.from({ length: 20 }, (_, i) => `<polygon points="${i * 90},900 ${i * 90 + 45},900 ${i * 90 + 90},860 ${i * 90 + 45},860"/>`).join('')}</g>
+      <g transform="translate(1180 520)"><rect width="200" height="110" fill="#ffecb3" stroke="#5d4037" stroke-width="6"/>
+        <text x="100" y="48" text-anchor="middle" font-size="30" font-family="Galmuri11, monospace" fill="#5d4037">GRADE</text>
+        <text x="100" y="92" text-anchor="middle" font-size="36" font-family="Galmuri11, monospace" fill="#d84315">1+ 1 2</text></g>`);
+  }
+
+  /* ---------- 5. 호스피스 ---------- */
+  function hospice() {
+    return wrap(`
+      <rect width="1600" height="900" fill="#f3e5f5"/>
+      <rect x="560" y="80" width="480" height="380" fill="url(#hg)" stroke="#8d6e63" stroke-width="14"/>
+      <circle cx="800" cy="360" r="70" fill="#ffb74d" class="sc-sun"/>
+      <path d="M560 380 Q700 330 800 370 T1040 360 V460 H560z" fill="#9575cd" opacity=".7"/>
+      <rect x="560" y="260" width="480" height="10" fill="#8d6e63"/><rect x="795" y="80" width="10" height="380" fill="#8d6e63"/>
+      <path d="M480 60 Q520 260 470 500 L560 500 L560 60 Z" fill="#ce93d8" class="sc-curtain"/>
+      <path d="M1120 60 Q1080 260 1130 500 L1040 500 L1040 60 Z" fill="#ce93d8" class="sc-curtain" style="animation-delay:-2s"/>
+      <rect x="440" y="44" width="720" height="20" rx="10" fill="#8d6e63"/>
+      <rect y="620" width="1600" height="280" fill="#d1c4e9"/>
+      <g transform="translate(250 470)">
+        <rect x="0" y="120" width="560" height="60" rx="14" fill="#fff" stroke="#7e57c2" stroke-width="6"/>
+        <rect x="0" y="80" width="140" height="60" rx="26" fill="#ede7f6" stroke="#7e57c2" stroke-width="6"/>
+        <path d="M120 120 Q340 60 560 120 Z" fill="#b39ddb"/>
+        <rect x="-20" y="20" width="24" height="300" fill="#7e57c2"/><rect x="556" y="90" width="24" height="230" fill="#7e57c2"/>
+      </g>
+      <g transform="translate(1180 520)">
+        <rect x="0" y="80" width="200" height="200" fill="#a1887f" stroke="#5d4037" stroke-width="6"/>
+        <path d="M70 80 L60 20 Q100 0 140 20 L130 80 Z" fill="#b2ebf2" stroke="#00838f" stroke-width="4"/>
+        <g class="sc-sway" style="transform-origin:100px 20px">
+          <path d="M100 20 V-60 M85 20 Q60 -30 40 -50 M115 20 Q140 -20 160 -45" stroke="#43a047" stroke-width="6" fill="none"/>
+          <circle cx="100" cy="-70" r="20" fill="#f48fb1"/><circle cx="38" cy="-58" r="16" fill="#fff59d"/><circle cx="162" cy="-52" r="16" fill="#ce93d8"/></g>
+      </g>
+      <g transform="translate(130 140)" class="sc-glowlamp"><path d="M0 0 L80 0 L60 70 L20 70 Z" fill="#fff59d" stroke="#f9a825" stroke-width="5"/><rect x="34" y="70" width="12" height="80" fill="#8d6e63"/></g>
+      <text x="1300" y="200" text-anchor="middle" font-size="40" font-family="Galmuri11, monospace" fill="#7e57c2">HOSPICE</text>
+      <text x="1300" y="250" text-anchor="middle" font-size="26" font-family="Galmuri11, monospace" fill="#9575cd">comfort · care · peace</text>`,
+      `<linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5c6bc0"/><stop offset=".6" stop-color="#ff8a65"/><stop offset="1" stop-color="#ffcc80"/></linearGradient>`);
+  }
+
+  /* ---------- FINAL: 황금 문 ---------- */
+  function finalRoom() {
+    let locks = '';
+    for (let i = 0; i < 5; i++) locks += `<g class="final-lock" data-i="${i}"><rect x="${652 + i * 62}" y="440" width="48" height="56" rx="8" fill="#5d4037" stroke="#3e2723" stroke-width="4"/>
+      <path d="M${662 + i * 62} 440 v-16 a14 14 0 0 1 28 0 v16" fill="none" stroke="#3e2723" stroke-width="6"/><circle cx="${676 + i * 62}" cy="466" r="6" fill="#ffd54f"/></g>`;
+    let stars = '';
+    for (let i = 0; i < 70; i++) stars += `<circle class="sc-twinkle" style="animation-delay:${(rand() * 3).toFixed(2)}s" cx="${rand() * 1600}" cy="${rand() * 900}" r="${1 + rand() * 2}" fill="#ffe082"/>`;
+    const torch = x => `<g transform="translate(${x} 330)"><rect x="-10" y="40" width="20" height="120" fill="#5d4037"/>
+      <g class="sc-flame"><path d="M-26 44 q0 -50 26 -80 q26 30 26 80 z" fill="#ff7043"/><path d="M-12 44 q0 -30 12 -48 q12 18 12 48 z" fill="#ffee58"/></g></g>`;
+    return wrap(`
+      <rect width="1600" height="900" fill="url(#zg)"/>${stars}
+      <rect y="760" width="1600" height="140" fill="#1a1030"/>
+      ${torch(420)}${torch(1180)}
+      <g class="sc-doorglow"><rect x="560" y="120" width="480" height="640" rx="220" fill="#ffd54f" opacity=".18"/></g>
+      <path d="M600 760 V340 A200 200 0 0 1 1000 340 V760 Z" fill="url(#dg)" stroke="#5d4037" stroke-width="14"/>
+      <path d="M800 160 V760" stroke="#8d6e63" stroke-width="8"/>
+      <circle cx="800" cy="300" r="56" fill="#fff8e1" stroke="#8d6e63" stroke-width="8"/>
+      <text x="800" y="318" text-anchor="middle" font-size="50" font-family="Galmuri11, monospace" fill="#8d6e63">?</text>
+      ${locks}`,
+      `<linearGradient id="zg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0221"/><stop offset="1" stop-color="#3b1b5a"/></linearGradient>
+       <linearGradient id="dg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffb300"/><stop offset=".5" stop-color="#ffe082"/><stop offset="1" stop-color="#ffa000"/></linearGradient>`);
+  }
+
+  /* ---------- 그림 퀴즈: 식물 ---------- */
+  function plantQuiz() {
+    const mk = (id, x, y) => `<g class="hs" data-id="${id}" tabindex="0" role="button" aria-label="${id}">
+      <circle cx="${x}" cy="${y}" r="20" class="hs-c"/><text x="${x}" y="${y + 8}" text-anchor="middle" class="hs-t">${id}</text></g>`;
+    return `<svg viewBox="0 0 420 380" class="quiz-svg" xmlns="http://www.w3.org/2000/svg">
+      <rect width="420" height="230" fill="#e3f2fd"/><circle cx="360" cy="50" r="28" fill="#ffeb3b"/>
+      <rect y="230" width="420" height="150" fill="#a1887f"/><rect y="226" width="420" height="10" fill="#6d4c41"/>
+      <circle cx="80" cy="300" r="14" fill="#8d6e63"/><circle cx="330" cy="330" r="10" fill="#8d6e63"/><circle cx="120" cy="350" r="8" fill="#8d6e63"/>
+      <path d="M210 232 V80" stroke="#43a047" stroke-width="12" stroke-linecap="round"/>
+      <path d="M210 72 q-12 -14 0 -30 q12 16 0 30" fill="#9ccc65" stroke="#33691e" stroke-width="3"/>
+      <path d="M210 160 Q170 150 140 128 Q175 120 210 150" fill="#66bb6a" stroke="#2e7d32" stroke-width="3"/>
+      <path d="M210 120 Q250 100 280 84 Q260 120 210 130" fill="#66bb6a" stroke="#2e7d32" stroke-width="3"/>
+      <path d="M210 195 Q250 185 280 170" stroke="#43a047" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <g transform="translate(298 164)"><circle r="10" fill="#fdd835"/>${[0, 72, 144, 216, 288].map(a => `<ellipse cx="0" cy="-17" rx="9" ry="12" fill="#f48fb1" transform="rotate(${a})"/>`).join('')}<circle r="9" fill="#fdd835"/></g>
+      <path d="M210 232 Q205 280 210 340 M210 250 Q170 280 150 320 M210 255 Q250 285 275 315" stroke="#efebe9" stroke-width="6" fill="none" stroke-linecap="round"/>
+      ${mk('A', 210, 26)}${mk('B', 330, 150)}${mk('C', 128, 108)}${mk('D', 240, 210)}${mk('E', 210, 360)}${mk('F', 70, 270)}
+    </svg>`;
+  }
+
+  /* ---------- 그림 퀴즈: X-ray 달걀 ---------- */
+  function eggsQuiz() {
+    const egg = (id, cx, kind) => {
+      const cy = 118;
+      const shell = kind === 'odd'
+        ? `M${cx} ${cy - 66} C${cx + 30} ${cy - 70} ${cx + 52} ${cy - 20} ${cx + 40} ${cy + 20} C${cx + 54} ${cy + 50} ${cx + 20} ${cy + 66} ${cx - 4} ${cy + 60} C${cx - 40} ${cy + 66} ${cx - 54} ${cy + 30} ${cx - 42} ${cy} C${cx - 52} ${cy - 40} ${cx - 30} ${cy - 62} ${cx} ${cy - 66} Z`
+        : `M${cx} ${cy - 64} C${cx + 34} ${cy - 64} ${cx + 48} ${cy + 4} ${cx + 46} ${cy + 22} C${cx + 44} ${cy + 52} ${cx + 24} ${cy + 64} ${cx} ${cy + 64} C${cx - 24} ${cy + 64} ${cx - 44} ${cy + 52} ${cx - 46} ${cy + 22} C${cx - 48} ${cy + 4} ${cx - 34} ${cy - 64} ${cx} ${cy - 64} Z`;
+      const big = kind === 'big';
+      const air = `<ellipse cx="${cx}" cy="${cy + (big ? 40 : 52)}" rx="${big ? 34 : 18}" ry="${big ? 20 : 8}" fill="#04140c" stroke="#a5d6a7" stroke-width="2" clip-path="url(#ec-${id})"/>`;
+      const crack = kind === 'crack' ? `<polyline points="${cx - 30},${cy - 30} ${cx - 16},${cy - 14} ${cx - 26},${cy} ${cx - 8},${cy + 14} ${cx - 18},${cy + 28}" fill="none" stroke="#ff5252" stroke-width="4"/>` : '';
+      const dirt = kind === 'odd' ? `<circle cx="${cx + 18}" cy="${cy - 30}" r="7" fill="#795548"/><circle cx="${cx - 22}" cy="${cy + 30}" r="9" fill="#795548"/><circle cx="${cx + 26}" cy="${cy + 24}" r="5" fill="#795548"/>` : '';
+      return `<g class="hs egg" data-id="${id}" tabindex="0" role="button" aria-label="달걀 ${id}">
+        <clipPath id="ec-${id}"><path d="${shell}"/></clipPath>
+        <path d="${shell}" fill="#1b5e20" fill-opacity=".55" stroke="#b9f6ca" stroke-width="4" class="egg-shell"/>
+        <circle cx="${cx}" cy="${cy - 6}" r="20" fill="#ffca28" opacity=".85"/>
+        ${air}${crack}${dirt}
+        <text x="${cx}" y="${cy + 100}" text-anchor="middle" class="hs-t egg-t">${id}</text></g>`;
+    };
+    return `<svg viewBox="0 0 520 240" class="quiz-svg xray" xmlns="http://www.w3.org/2000/svg">
+      <rect width="520" height="240" rx="12" fill="#06251a"/>
+      <g stroke="#0f3d2b" stroke-width="1">${Array.from({ length: 13 }, (_, i) => `<line x1="${i * 40}" y1="0" x2="${i * 40}" y2="240"/>`).join('')}${Array.from({ length: 6 }, (_, i) => `<line x1="0" y1="${i * 40}" x2="520" y2="${i * 40}"/>`).join('')}</g>
+      <text x="10" y="18" font-size="12" fill="#69f0ae" font-family="monospace">X-RAY SCAN ▶ AIR CELL (기실) = 아래쪽 어두운 부분</text>
+      ${egg('A', 70, 'crack')}${egg('B', 195, 'big')}${egg('C', 320, 'good')}${egg('D', 445, 'odd')}
+    </svg>`;
+  }
+
+  return { intro, office, forest, reef, factory, hospice, final: finalRoom, plantQuiz, eggsQuiz };
+})();
+
+</script>
+  <script>
+/* =========================================================
+   미니게임 모음 — 각 함수는 (el, cfg, done) 을 받고 정리(cleanup) 함수를 돌려줍니다.
+   미니게임은 하트가 줄지 않아요!
+   ========================================================= */
+const MiniGames = (() => {
+  const normKo = s => (s || '').replace(/[\s.,!?~'"“”‘’()\-·]/g, '').toLowerCase();
+  const normEn = s => (s || '').toLowerCase().replace(/[^a-z]/g, '');
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const $ = (root, sel) => root.querySelector(sel);
+  const shake = node => { node.classList.remove('shake'); void node.offsetWidth; node.classList.add('shake'); };
+  const pt = (canvas, e, W, H) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+  };
+
+  /* ---------------------------------------------------------
+     1) 물총으로 물감 지우기 → 영어 단어 뜻 쓰기
+     --------------------------------------------------------- */
+  function paint(el, cfg, done) {
+    const W = 720, H = 300;
+    let idx = 0, fails = 0, revealed = false, down = false, last = null, checkTimer, alive = true;
+    el.innerHTML = `
+      <p class="mg-desc">💦 마우스(손가락)를 누른 채로 문질러 <b>물을 뿌리세요!</b> 물감 아래 숨은 영어 단어의 <b>뜻</b>을 한국어로 쓰면 통과! <span class="mg-count">(<b class="pg-n">1</b>/${cfg.words.length})</span></p>
+      <div class="paint-wrap">
+        <canvas class="paint-under" width="${W}" height="${H}"></canvas>
+        <canvas class="paint-top" width="${W}" height="${H}"></canvas>
+        <div class="drops"></div>
+      </div>
+      <div class="meter"><i></i><span>물감 제거 0%</span></div>
+      <div class="answer-row paint-answer locked">
+        <input type="text" placeholder="물감을 더 지워야 입력할 수 있어요" disabled autocomplete="off">
+        <button class="btn btn-go" disabled>확인</button>
+      </div>
+      <p class="mg-hint"></p>`;
+    const under = $(el, '.paint-under').getContext('2d');
+    const topC = $(el, '.paint-top'), top = topC.getContext('2d', { willReadFrequently: true });
+    const meter = $(el, '.meter i'), meterT = $(el, '.meter span');
+    const row = $(el, '.paint-answer'), input = $(row, 'input'), btn = $(row, 'button');
+    const hint = $(el, '.mg-hint'), drops = $(el, '.drops');
+    let box = null;
+
+    function setup() {
+      const w = cfg.words[idx];
+      revealed = false; fails = 0; hint.textContent = '';
+      $(el, '.pg-n').textContent = idx + 1;
+      row.classList.add('locked'); input.disabled = true; btn.disabled = true; input.value = '';
+      input.placeholder = '물감을 더 지워야 입력할 수 있어요';
+      under.fillStyle = '#fffdf5'; under.fillRect(0, 0, W, H);
+      under.fillStyle = '#1b1b2f';
+      let fs = 110; under.font = `900 ${fs}px "Noto Sans KR", Arial, sans-serif`;
+      while (under.measureText(w.en).width > W - 80) { fs -= 6; under.font = `900 ${fs}px "Noto Sans KR", Arial, sans-serif`; }
+      under.textAlign = 'center'; under.textBaseline = 'middle';
+      under.fillText(w.en, W / 2, H / 2 + 6);
+      const tw = under.measureText(w.en).width;
+      box = { x: Math.max(0, W / 2 - tw / 2), y: H / 2 - fs * 0.45, w: Math.min(W, tw), h: fs * 0.9 };
+      // 물감 칠하기
+      top.globalCompositeOperation = 'source-over';
+      const pal = ['#ef5350', '#ab47bc', '#42a5f5', '#66bb6a', '#ffca28', '#ff7043', '#26c6da', '#ec407a'];
+      top.fillStyle = pal[Math.floor(Math.random() * pal.length)]; top.fillRect(0, 0, W, H);
+      for (let i = 0; i < 160; i++) {
+        top.fillStyle = pal[i % pal.length];
+        top.beginPath();
+        top.arc(Math.random() * W, Math.random() * H, 20 + Math.random() * 60, 0, Math.PI * 2);
+        top.fill();
+      }
+      for (let i = 0; i < 40; i++) {
+        top.fillStyle = 'rgba(255,255,255,.25)';
+        top.beginPath(); top.arc(Math.random() * W, Math.random() * H, 4 + Math.random() * 10, 0, Math.PI * 2); top.fill();
+      }
+      updateMeter(0);
+    }
+
+    function spray(p) {
+      top.globalCompositeOperation = 'destination-out';
+      const steps = last ? Math.max(1, Math.ceil(Math.hypot(p.x - last.x, p.y - last.y) / 10)) : 1;
+      for (let s = 0; s < steps; s++) {
+        const cx = last ? last.x + (p.x - last.x) * (s + 1) / steps : p.x;
+        const cy = last ? last.y + (p.y - last.y) * (s + 1) / steps : p.y;
+        for (let i = 0; i < 14; i++) {
+          const a = Math.random() * Math.PI * 2, d = Math.random() * Math.random() * 38;
+          top.beginPath(); top.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 3 + Math.random() * 8, 0, Math.PI * 2); top.fill();
+        }
+      }
+      last = p;
+      Sound.play('spray');
+      if (Math.random() < 0.35) {
+        const d = document.createElement('i');
+        const r = topC.getBoundingClientRect();
+        d.style.left = (p.x / W * r.width) + 'px'; d.style.top = (p.y / H * r.height) + 'px';
+        drops.appendChild(d); setTimeout(() => d.remove(), 700);
+      }
+    }
+
+    function measure() {
+      if (!box) return 0;
+      const data = top.getImageData(box.x, box.y, box.w, box.h).data;
+      let clear = 0, total = 0;
+      for (let i = 3; i < data.length; i += 4 * 7) { total++; if (data[i] < 60) clear++; }
+      return total ? clear / total : 0;
+    }
+    function updateMeter(r) {
+      const pct = Math.min(100, Math.round(r / 0.7 * 100));
+      meter.style.width = pct + '%';
+      meterT.textContent = `물감 제거 ${pct}%`;
+    }
+    checkTimer = setInterval(() => {
+      if (!alive || revealed) return;
+      const r = measure(); updateMeter(r);
+      if (r >= 0.7) {
+        revealed = true; Sound.play('select');
+        row.classList.remove('locked'); input.disabled = false; btn.disabled = false;
+        input.placeholder = '이 단어의 뜻은? (한국어)'; input.focus();
+      }
+    }, 250);
+
+    const onDown = e => { down = true; last = null; topC.setPointerCapture(e.pointerId); spray(pt(topC, e, W, H)); e.preventDefault(); };
+    const onMove = e => { if (down) spray(pt(topC, e, W, H)); };
+    const onUp = () => { down = false; last = null; };
+    topC.addEventListener('pointerdown', onDown);
+    topC.addEventListener('pointermove', onMove);
+    topC.addEventListener('pointerup', onUp);
+    topC.addEventListener('pointercancel', onUp);
+
+    function check() {
+      if (!revealed) return;
+      const w = cfg.words[idx], v = normKo(input.value);
+      if (!v) return;
+      if (w.ko.some(k => v.includes(normKo(k)))) {
+        Sound.play('coin');
+        hint.innerHTML = `<span class="ok">⭕ 정답! <b>${w.en}</b> = ${w.show}</span>`;
+        row.classList.add('locked'); input.disabled = true; btn.disabled = true;
+        top.globalCompositeOperation = 'destination-out'; top.fillRect(0, 0, W, H);
+        setTimeout(() => {
+          if (!alive) return;
+          idx++;
+          if (idx >= cfg.words.length) done(); else setup();
+        }, 1300);
+      } else {
+        fails++; Sound.play('soft-wrong'); shake(row);
+        hint.innerHTML = fails >= 2 ? `<span class="no">힌트: '${w.show[0]}'(으)로 시작해요!</span>` : `<span class="no">땡! 다시 생각해 보세요 🤔</span>`;
+        input.select();
+      }
+    }
+    btn.addEventListener('click', check);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+
+    setup();
+    return () => { alive = false; clearInterval(checkTimer); };
+  }
+
+  /* ---------------------------------------------------------
+     2) 하늘에서 떨어지는 한글 뜻 → 영어 단어 입력 (단어당 15초)
+     --------------------------------------------------------- */
+  function falling(el, cfg, done) {
+    const dur = (cfg.seconds || 15) * 1000;
+    let queue = shuffle(cfg.words), cur = null, start = 0, raf, alive = true, cleared = 0, misses = 0, lastSec = -1, hintShown = false, busy = false;
+    const total = cfg.words.length;
+    el.innerHTML = `
+      <p class="mg-desc">☔ 하늘에서 <b>한글 뜻</b>이 떨어져요! 바닥에 닿기 전(<b>${cfg.seconds || 15}초</b>)에 알맞은 <b>영어 단어</b>를 입력하고 Enter! <br>놓친 단어는 나중에 다시 떨어집니다.</p>
+      <div class="fall-stat"><span>✅ <b class="f-ok">0</b>/${total}</span><span>💧 놓친 횟수 <b class="f-miss">0</b></span><span>⏱ <b class="f-sec">${cfg.seconds || 15}</b>초</span></div>
+      <div class="fall-area">
+        <div class="fall-cloud">☁️ ☁️ ☁️</div>
+        <div class="fall-word"><span class="fw-ko"></span><small class="fw-hint"></small></div>
+        <div class="fall-ground"></div>
+      </div>
+      <div class="answer-row"><input type="text" placeholder="영어 단어 입력 후 Enter" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn btn-go">입력</button></div>`;
+    const area = $(el, '.fall-area'), word = $(el, '.fall-word'), ko = $(el, '.fw-ko'), hintEl = $(el, '.fw-hint');
+    const input = $(el, 'input'), btn = $(el, 'button');
+    const okEl = $(el, '.f-ok'), missEl = $(el, '.f-miss'), secEl = $(el, '.f-sec');
+
+    function next() {
+      if (!alive) return;
+      if (!queue.length) { cancelAnimationFrame(raf); done(); return; }
+      cur = queue.shift(); busy = false; hintShown = false; lastSec = -1;
+      ko.textContent = cur.ko; hintEl.textContent = '';
+      word.className = 'fall-word';
+      word.style.left = Math.max(6, Math.random() * (area.clientWidth - word.offsetWidth - 12)) + 'px';
+      start = performance.now();
+      input.value = ''; input.focus();
+      raf = requestAnimationFrame(loop);
+    }
+    function loop(now) {
+      if (!alive || busy) return;
+      const t = (now - start) / dur;
+      const maxY = area.clientHeight - word.offsetHeight - 26;
+      word.style.top = (Math.min(1, t) * maxY) + 'px';
+      const remain = Math.max(0, Math.ceil((dur - (now - start)) / 1000));
+      secEl.textContent = remain;
+      if (remain !== lastSec) { lastSec = remain; if (remain <= 3 && remain > 0) Sound.play('tick'); }
+      word.classList.toggle('danger', remain <= 4);
+      if (!hintShown && t > 0.5) {
+        hintShown = true;
+        const a = cur.en[0];
+        hintEl.textContent = `힌트: ${a[0]} ${'_ '.repeat(a.length - 1)}(${a.length}글자)`;
+      }
+      if (t >= 1) {
+        busy = true; misses++; missEl.textContent = misses;
+        Sound.play('splash');
+        word.classList.add('splat');
+        queue.push(cur);
+        setTimeout(next, 700);
+        return;
+      }
+      raf = requestAnimationFrame(loop);
+    }
+    function submit() {
+      if (!cur || busy) return;
+      const v = normEn(input.value);
+      if (!v) return;
+      if (cur.en.some(a => normEn(a) === v)) {
+        busy = true; cleared++; okEl.textContent = cleared;
+        Sound.play('coin');
+        word.classList.add('boom');
+        hintEl.textContent = cur.en[0];
+        setTimeout(next, 600);
+      } else {
+        Sound.play('soft-wrong'); shake(input); input.select();
+      }
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    setTimeout(next, 400);
+    return () => { alive = false; cancelAnimationFrame(raf); };
+  }
+
+  /* ---------------------------------------------------------
+     3) 카드 짝 맞추기 (영어 ↔ 한국어)
+     --------------------------------------------------------- */
+  function memory(el, cfg, done) {
+    const cards = shuffle(cfg.pairs.flatMap((p, i) => [{ id: i, text: p.en, en: true }, { id: i, text: p.ko, en: false }]));
+    let open = [], matched = 0, flips = 0, lock = false, alive = true;
+    el.innerHTML = `
+      <p class="mg-desc">🃏 카드를 뒤집어 <b>영어 단어</b>와 <b>한국어 뜻</b>의 짝을 모두 찾으세요!</p>
+      <div class="fall-stat"><span>🔎 뒤집은 횟수 <b class="m-flips">0</b></span><span>💎 찾은 짝 <b class="m-ok">0</b>/${cfg.pairs.length}</span></div>
+      <div class="mem-grid">${cards.map((c, i) => `
+        <button class="mem-card" data-i="${i}"><span class="mem-inner"><span class="mem-back">?</span><span class="mem-front ${c.en ? 'en' : 'ko'}">${c.text}</span></span></button>`).join('')}
+      </div>`;
+    const btns = [...el.querySelectorAll('.mem-card')];
+    btns.forEach(b => b.addEventListener('click', () => {
+      if (lock || !alive) return;
+      const i = +b.dataset.i;
+      if (b.classList.contains('flipped')) return;
+      b.classList.add('flipped'); Sound.play('flip');
+      open.push(i); flips++; $(el, '.m-flips').textContent = flips;
+      if (open.length === 2) {
+        const [a, c] = open;
+        if (cards[a].id === cards[c].id) {
+          setTimeout(() => {
+            btns[a].classList.add('matched'); btns[c].classList.add('matched');
+            Sound.play('coin'); matched++; $(el, '.m-ok').textContent = matched;
+            if (matched === cfg.pairs.length) setTimeout(() => alive && done(), 700);
+          }, 250);
+          open = [];
+        } else {
+          lock = true;
+          setTimeout(() => {
+            btns[a].classList.remove('flipped'); btns[c].classList.remove('flipped');
+            Sound.play('soft-wrong'); open = []; lock = false;
+          }, 900);
+        }
+      }
+    }));
+    return () => { alive = false; };
+  }
+
+  /* ---------------------------------------------------------
+     4) 빠르게 지나가는 물건 맞히기 (맞힐 때까지 계속 지나감)
+     --------------------------------------------------------- */
+  function conveyor(el, cfg, done) {
+    let r = 0, speed = cfg.startMs || 520, misses = 0, passes = 0, anim = null, timer = null, alive = true, solved = false;
+    el.innerHTML = `
+      <p class="mg-desc">🏭 앗! 달걀 벨트 위로 <b>엉뚱한 물건</b>이 섞여 들어왔어요. 눈 깜짝할 새 지나가는 물건이 무엇인지 맞히세요! <br>(한국어 또는 영어, 맞힐 때까지 계속 지나가요) <span class="mg-count">(<b class="cv-n">1</b>/${cfg.items.length})</span></p>
+      <div class="belt">
+        <div class="belt-obj"></div>
+        <div class="belt-reveal"></div>
+        <div class="belt-scanner">SCAN</div>
+        <div class="belt-surface"></div>
+      </div>
+      <div class="answer-row"><input type="text" placeholder="지나간 물건은?" autocomplete="off"><button class="btn btn-go">정답!</button></div>
+      <p class="mg-hint"></p>`;
+    const belt = $(el, '.belt'), obj = $(el, '.belt-obj'), reveal = $(el, '.belt-reveal');
+    const input = $(el, 'input'), btn = $(el, 'button'), hint = $(el, '.mg-hint');
+
+    function pass() {
+      if (!alive || solved) return;
+      const item = cfg.items[r];
+      obj.textContent = item.emoji;
+      const w = belt.clientWidth;
+      // 처음 slowAfter(4)번은 빠르게, 그래도 못 맞히면 천천히
+      passes++;
+      const slow = passes > (cfg.slowAfter || 4);
+      if (slow && !obj.classList.contains('slow')) {
+        obj.classList.add('slow');
+        hint.innerHTML = `<span class="no">🐢 이제 천천히 지나가요! 잘 보세요.</span>`;
+      }
+      speed = slow ? (cfg.slowMs || 2600) : (cfg.startMs || 520);
+      Sound.play('whoosh');
+      anim = obj.animate([{ transform: 'translateX(-140px)' }, { transform: `translateX(${w + 140}px)` }], { duration: speed, easing: 'linear' });
+      anim.onfinish = () => { timer = setTimeout(pass, 1300); };
+    }
+    function startRound() {
+      solved = false; misses = 0; passes = 0; speed = cfg.startMs || 520;
+      obj.classList.remove('slow');
+      $(el, '.cv-n').textContent = r + 1;
+      reveal.classList.remove('show'); reveal.textContent = '';
+      hint.textContent = ''; input.value = ''; input.disabled = false; btn.disabled = false; input.focus();
+      timer = setTimeout(pass, 700);
+    }
+    function submit() {
+      if (solved) return;
+      const item = cfg.items[r];
+      const v = normKo(input.value);
+      if (!v) return;
+      if (item.answers.some(a => normKo(a) === v || (v.length >= 2 && normKo(a).length >= 2 && v === normKo(a)))) {
+        solved = true; clearTimeout(timer); if (anim) anim.cancel();
+        Sound.play('coin');
+        reveal.innerHTML = `<span>${item.emoji}</span><b>${item.name}</b>`; reveal.classList.add('show');
+        hint.innerHTML = `<span class="ok">⭕ 정답! ${misses ? `(${misses}번 만에)` : '한 번에 맞혔어요! 👀'}</span>`;
+        input.disabled = true; btn.disabled = true;
+        setTimeout(() => {
+          if (!alive) return;
+          r++;
+          if (r >= cfg.items.length) done(); else startRound();
+        }, 1500);
+      } else {
+        misses++; Sound.play('soft-wrong'); shake(input); input.select();
+        hint.innerHTML = misses >= 3 ? `<span class="no">힌트: ${item.hint}</span>` : `<span class="no">땡! 다시 잘 보세요 👀</span>`;
+      }
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    startRound();
+    return () => { alive = false; clearTimeout(timer); if (anim) anim.cancel(); };
+  }
+
+  /* ---------------------------------------------------------
+     5) 비누로 손의 세균 모두 없애기
+     --------------------------------------------------------- */
+  function germs(el, cfg, done) {
+    const W = 720, H = 440;
+    let alive = true, raf, down = false, last = null, soap = { x: W - 90, y: H - 70 }, finished = false;
+    el.innerHTML = `
+      <p class="mg-desc">🧼 병동에 들어가기 전 손 씻기! 마우스(손가락)를 <b>누른 채로 세균 위를 박박 문질러</b> 모두 없애세요.</p>
+      <div class="fall-stat"><span>🦠 남은 세균 <b class="g-left">${cfg.count}</b></span><span>🫧 깨끗함 <b class="g-pct">0</b>%</span></div>
+      <div class="germ-wrap"><canvas width="${W}" height="${H}"></canvas></div>`;
+    const cv = $(el, 'canvas'), c = cv.getContext('2d');
+
+    // 손 모양
+    const hand = new Path2D();
+    hand.roundRect ? hand.roundRect(250, 190, 230, 210, 70) : hand.rect(250, 190, 230, 210);
+    const fingers = [[262, 70, 46, 170], [318, 40, 48, 190], [376, 52, 46, 180], [430, 90, 42, 150]];
+    fingers.forEach(f => hand.roundRect ? hand.roundRect(f[0], f[1], f[2], f[3], 23) : hand.rect(...f));
+    const thumb = new Path2D();
+    thumb.ellipse(225, 285, 34, 85, -0.7, 0, Math.PI * 2);
+    const inHand = (x, y) => c.isPointInPath(hand, x, y) || c.isPointInPath(thumb, x, y);
+
+    const colors = ['#7cb342', '#8e24aa', '#43a047', '#00897b', '#c0ca33', '#5e35b1'];
+    const list = [];
+    let guard = 0;
+    while (list.length < cfg.count && guard++ < 5000) {
+      const x = 190 + Math.random() * 310, y = 40 + Math.random() * 360;
+      if (!inHand(x, y)) continue;
+      if (list.some(g => Math.hypot(g.x - x, g.y - y) < 34)) continue;
+      list.push({ x, y, r: 15 + Math.random() * 7, hp: 100, col: colors[list.length % colors.length], ph: Math.random() * 6, vx: (Math.random() - .5) * .4, vy: (Math.random() - .5) * .4, dead: false, pop: 0 });
+    }
+    const bubbles = [], sparks = [];
+
+    function drawHand() {
+      c.save();
+      c.fillStyle = '#ffcc99'; c.strokeStyle = '#d4875a'; c.lineWidth = 5;
+      c.fill(thumb); c.stroke(thumb); c.fill(hand); c.stroke(hand);
+      c.strokeStyle = 'rgba(180,100,60,.35)'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(285, 300); c.quadraticCurveTo(360, 330, 450, 290); c.stroke();
+      c.beginPath(); c.moveTo(290, 250); c.quadraticCurveTo(350, 270, 400, 240); c.stroke();
+      c.restore();
+    }
+    function drawGerm(g, t) {
+      const s = g.hp / 100, r = g.r * (0.45 + 0.55 * s);
+      c.save(); c.translate(g.x, g.y); c.globalAlpha = 0.35 + 0.65 * s;
+      c.fillStyle = g.col; c.beginPath();
+      for (let i = 0; i <= 16; i++) {
+        const a = i / 16 * Math.PI * 2, rr = r * (1 + (i % 2 ? .28 : 0) + Math.sin(t / 200 + g.ph + i) * .06);
+        i ? c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : c.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      c.fill();
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(-r * .35, -r * .15, r * .28, 0, 7); c.arc(r * .35, -r * .15, r * .28, 0, 7); c.fill();
+      c.fillStyle = '#111'; c.beginPath(); c.arc(-r * .3, -r * .1, r * .13, 0, 7); c.arc(r * .4, -r * .1, r * .13, 0, 7); c.fill();
+      c.strokeStyle = '#111'; c.lineWidth = 2.5; c.beginPath();
+      if (s > .5) { c.moveTo(-r * .3, r * .4); c.quadraticCurveTo(0, r * .2, r * .3, r * .4); }
+      else { c.arc(0, r * .45, r * .2, 0, Math.PI, true); }
+      c.stroke();
+      c.restore();
+    }
+    function drawSoap() {
+      c.save(); c.translate(soap.x, soap.y); c.rotate(-0.2);
+      c.fillStyle = '#f8bbd0'; c.strokeStyle = '#ad1457'; c.lineWidth = 4;
+      c.beginPath(); c.roundRect ? c.roundRect(-46, -28, 92, 56, 18) : c.rect(-46, -28, 92, 56); c.fill(); c.stroke();
+      c.fillStyle = '#ad1457'; c.font = 'bold 18px Galmuri11, monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('SOAP', 0, 2);
+      c.fillStyle = 'rgba(255,255,255,.7)'; c.beginPath(); c.ellipse(-24, -14, 14, 5, -0.3, 0, 7); c.fill();
+      c.restore();
+    }
+    function frame(t) {
+      if (!alive) return;
+      c.clearRect(0, 0, W, H);
+      const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#e0f7fa'); bg.addColorStop(1, '#b2ebf2');
+      c.fillStyle = bg; c.fillRect(0, 0, W, H);
+      c.fillStyle = 'rgba(255,255,255,.5)';
+      for (let i = 0; i < 8; i++) { c.fillRect(i * 100 + 20, 0, 2, H); }
+      drawHand();
+      list.forEach(g => {
+        if (g.dead) return;
+        const nx = g.x + g.vx, ny = g.y + g.vy;
+        if (inHand(nx, ny)) { g.x = nx; g.y = ny; } else { g.vx *= -1; g.vy *= -1; }
+        if (Math.random() < 0.01) { g.vx = (Math.random() - .5) * .5; g.vy = (Math.random() - .5) * .5; }
+        drawGerm(g, t);
+      });
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i]; b.y -= b.v; b.x += Math.sin(t / 150 + b.p) * .5; b.life -= 0.012;
+        if (b.life <= 0) { bubbles.splice(i, 1); continue; }
+        c.globalAlpha = b.life; c.strokeStyle = '#fff'; c.lineWidth = 2; c.fillStyle = 'rgba(255,255,255,.35)';
+        c.beginPath(); c.arc(b.x, b.y, b.r, 0, 7); c.fill(); c.stroke(); c.globalAlpha = 1;
+      }
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i]; s.life -= .03; if (s.life <= 0) { sparks.splice(i, 1); continue; }
+        c.globalAlpha = s.life; c.fillStyle = '#fff176'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center';
+        c.fillText('✨', s.x, s.y - (1 - s.life) * 30); c.globalAlpha = 1;
+      }
+      drawSoap();
+      raf = requestAnimationFrame(frame);
+    }
+    function scrub(p) {
+      const d = last ? Math.hypot(p.x - last.x, p.y - last.y) : 0;
+      soap.x = p.x; soap.y = p.y; last = p;
+      if (!down || d < 0.5) return;
+      let hit = false;
+      list.forEach(g => {
+        if (g.dead) return;
+        if (Math.hypot(g.x - p.x, g.y - p.y) < g.r + 40) {
+          hit = true;
+          g.hp -= d * 0.9;
+          if (g.hp <= 0) {
+            g.dead = true; Sound.play('pop');
+            sparks.push({ x: g.x, y: g.y, life: 1 });
+          }
+        }
+      });
+      if (hit || Math.random() < .3) {
+        for (let i = 0; i < (hit ? 3 : 1); i++) bubbles.push({ x: p.x + (Math.random() - .5) * 70, y: p.y + (Math.random() - .5) * 40, r: 4 + Math.random() * 10, v: .5 + Math.random() * 1.2, life: 1, p: Math.random() * 6 });
+        Sound.play(hit ? 'scrub' : 'bubble');
+      }
+      const left = list.filter(g => !g.dead).length;
+      $(el, '.g-left').textContent = left;
+      $(el, '.g-pct').textContent = Math.round((1 - list.reduce((s, g) => s + Math.max(0, g.hp), 0) / (list.length * 100)) * 100);
+      if (!left && !finished) {
+        finished = true;
+        Sound.play('powerup');
+        setTimeout(() => alive && done(), 900);
+      }
+    }
+    cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId); last = pt(cv, e, W, H); soap.x = last.x; soap.y = last.y; e.preventDefault(); });
+    cv.addEventListener('pointermove', e => scrub(pt(cv, e, W, H)));
+    const up = () => { down = false; };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    raf = requestAnimationFrame(frame);
+    return () => { alive = false; cancelAnimationFrame(raf); };
+  }
+
+  return { paint, falling, memory, conveyor, germs, normKo, normEn, shuffle };
+})();
+
+</script>
+  <script>
+/* =========================================================
+   방탈출 게임 엔진
+   ========================================================= */
+(() => {
+  const D = window.GAME_DATA;
+  const ROOMS = D.rooms;
+  const SAVE_KEY = 'escape_flow_v2';
+  const PENDING_KEY = 'escape_flow_pending';
+  const NOSUBMIT = /[?&]nosubmit/.test(location.search);
+  const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦'];
+
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nl = s => esc(s).replace(/\n/g, '<br>');
+  const { normKo, normEn, shuffle } = MiniGames;
+
+  let S = null;            // 게임 상태
+  let cleanup = null;      // 미니게임 정리 함수
+  let timerInt = null;
+  let stageTries = 0;      // 현재 문제 오답 수
+
+  /* ---------------- 저장 / 불러오기 ---------------- */
+  const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} };
+  const load = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } };
+
+  /* ---------------- 구글 폼 전송 ---------------- */
+  function fmtTime(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}분 ${String(s % 60).padStart(2, '0')}초`; }
+  function nowStr() { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+  function reached() {
+    if (S.room >= ROOMS.length) return '최종방 클리어';
+    const r = ROOMS[S.room];
+    return `${r.no} ${r.title} (${S.stage + 1}/${r.stages.length}번 문제)`;
+  }
+  function recordText(status) {
+    return `${S.sid} ${S.name} | ${status} | 도달: ${reached()} | 하트 ${S.hearts}/${D.maxHearts} | 오답 ${S.wrong}회 | 점수 ${S.score} | 소요 ${fmtTime(elapsed())} | ${S.attempt}회차 도전 | ${nowStr()}`;
+  }
+  function postForm(text) {
+    if (NOSUBMIT) { console.log('[nosubmit]', text); return Promise.resolve(true); }
+    const body = new URLSearchParams();
+    body.append(D.formEntry, text);
+    return fetch(D.formUrl, { method: 'POST', mode: 'no-cors', body })
+      .then(() => true)
+      .catch(() => {
+        try { const p = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); p.push(text); localStorage.setItem(PENDING_KEY, JSON.stringify(p)); } catch (e) {}
+        return false;
+      });
+  }
+  function flushPending() {
+    let p = [];
+    try { p = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); localStorage.removeItem(PENDING_KEY); } catch (e) {}
+    p.forEach(t => postForm(t));
+  }
+  function sendRecord(status) { return postForm(recordText(status)); }
+
+  /* ---------------- HUD ---------------- */
+  const heartSVG = full => `<svg viewBox="0 0 9 8" class="heart ${full ? 'full' : 'empty'}"><path d="M1 0h2v1h1v1h1V1h1V0h2v1h1v3H8v1H7v1H6v1H5v1H4V7H3V6H2V5H1V4H0V1h1z"/></svg>`;
+  function elapsed() { return S ? (S.accum || 0) + (S.runStart ? Date.now() - S.runStart : 0) : 0; }
+
+  function renderHUD() {
+    if (!S) return;
+    const r = ROOMS[Math.min(S.room, ROOMS.length - 1)];
+    $('#hud-room').innerHTML = `<b>${r.no}</b> ${esc(r.title)}`;
+    $('#hud-hearts').innerHTML = Array.from({ length: D.maxHearts }, (_, i) => heartSVG(i < S.hearts)).join('');
+    $('#hud-keys').innerHTML = ROOMS.filter(x => x.letter).map((x, i) => `<span class="keyslot ${S.letters[i] ? 'got' : ''}">${S.letters[i] || '?'}</span>`).join('');
+    $('#hud-score').textContent = String(S.score).padStart(6, '0');
+    $('#hud-map').innerHTML = ROOMS.map((x, i) => `<span class="mapdot ${i < S.room ? 'done' : i === S.room ? 'now' : ''}" title="${esc(x.title)}">${i < ROOMS.length - 1 ? i + 1 : '★'}</span>`).join('<i></i>');
+  }
+  function tickTimer() { if (S) $('#hud-time').textContent = fmtTime(elapsed()).replace('분 ', ':').replace('초', ''); }
+
+  /* ---------------- 효과 ---------------- */
+  function floatText(text, cls = '') {
+    const f = el('div', 'float-txt ' + cls, text);
+    const card = $('#stage').getBoundingClientRect();
+    f.style.left = (card.left + card.width / 2) + 'px';
+    f.style.top = (card.top + 80) + 'px';
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 1200);
+  }
+  function flash(cls) {
+    const f = $('#flash'); f.className = ''; void f.offsetWidth; f.className = cls;
+  }
+  function shake(node) { node.classList.remove('shake'); void node.offsetWidth; node.classList.add('shake'); }
+  function confetti(n = 120) {
+    const box = $('#fx');
+    const cols = ['#ff5252', '#ffd740', '#69f0ae', '#40c4ff', '#e040fb', '#fff'];
+    for (let i = 0; i < n; i++) {
+      const c = el('i', 'confetti');
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = cols[i % cols.length];
+      c.style.animationDuration = (2 + Math.random() * 2.5) + 's';
+      c.style.animationDelay = (Math.random() * 0.8) + 's';
+      c.style.transform = `rotate(${Math.random() * 360}deg)`;
+      box.appendChild(c);
+      setTimeout(() => c.remove(), 5200);
+    }
+  }
+
+  /* ---------------- 배경 ---------------- */
+  function setScene(key) {
+    const bg = $('#bg');
+    bg.classList.add('fade');
+    setTimeout(() => { bg.innerHTML = Scenes[key](); bg.classList.remove('fade'); }, 250);
+    document.body.dataset.room = key;
+  }
+
+  /* ---------------- 오버레이(모달) ---------------- */
+  function overlay(html, cls = '') {
+    const o = $('#overlay');
+    o.className = 'show ' + cls;
+    o.innerHTML = `<div class="ov-card">${html}</div>`;
+    return o.firstElementChild;
+  }
+  function closeOverlay() { const o = $('#overlay'); o.className = ''; o.innerHTML = ''; }
+
+  /* =========================================================
+     인트로
+     ========================================================= */
+  function showIntro() {
+    setScene('intro');
+    $('#app').classList.add('hidden');
+    const saved = load();
+    const canResume = saved && !saved.over && saved.sid;
+    const card = overlay(`
+      <div class="title-badge">ESCAPE ROOM</div>
+      <h1 class="game-title">흐름의 방 탈출</h1>
+      <p class="game-sub">5개의 지문 방 + 마지막 문 — 모든 문제를 풀어야 <b>완벽한 탈출!</b></p>
+      <div class="rules">
+        <div>❤️ 하트 <b>${D.maxHearts}개</b>로 시작 · 퀴즈 오답 시 1개 감소 · 방 탈출 시 1UP!</div>
+        <div>🔑 방마다 <b>열쇠 글자</b>를 얻어 마지막 암호를 완성하세요</div>
+        <div>🎮 미니게임은 하트가 줄지 않아요 · 하트가 0이 되면 GAME OVER</div>
+        <div>🔊 소리를 켜고 플레이하면 더 재밌어요!</div>
+      </div>
+      <form id="login" autocomplete="off">
+        <button class="btn btn-start" type="submit">▶ 탈출 시작</button>
+        ${canResume ? `<button class="btn btn-sub" type="button" id="btn-resume">⏯ 이어하기 (${esc(ROOMS[saved.room] ? ROOMS[saved.room].no : 'FINAL')})</button>` : ''}
+      </form>
+      <p class="tip">학번과 이름은 마지막 문제를 푼 뒤에 입력해요.</p>`, 'intro');
+    card.querySelector('#login').addEventListener('submit', e => {
+      e.preventDefault();
+      Sound.init(); Sound.play('jump');
+      newGame();
+    });
+    const rb = card.querySelector('#btn-resume');
+    if (rb) rb.addEventListener('click', () => {
+      Sound.init(); Sound.play('jump');
+      S = saved; S.runStart = Date.now(); save();
+      startRun();
+    });
+    Sound.startBgm('intro');
+  }
+
+  // 이 기기에서의 도전 횟수 (탈출 성공 후 기록 전송 시 초기화)
+  const ATTEMPT_KEY = 'escape_flow_attempt';
+  function nextAttempt() {
+    let n = 0;
+    try { n = +(localStorage.getItem(ATTEMPT_KEY) || 0); localStorage.setItem(ATTEMPT_KEY, n + 1); } catch (e) {}
+    return n + 1;
+  }
+
+  function newGame() {
+    S = { sid: '', name: '', room: 0, stage: 0, hearts: D.maxHearts, wrong: 0, score: 0, letters: [], accum: 0, runStart: Date.now(), attempt: nextAttempt(), over: false };
+    save();
+    startRun();
+  }
+
+  function startRun() {
+    $('#app').classList.remove('hidden');
+    clearInterval(timerInt);
+    if (S.room >= ROOMS.length) { renderHUD(); tickTimer(); victory(); return; }   // 탈출 후 학번·이름 입력 전이었던 경우
+    timerInt = setInterval(() => { tickTimer(); }, 1000);
+    renderHUD(); tickTimer();
+    enterRoom(S.room, S.stage === 0);
+  }
+
+  /* ----- 학번·이름 입력 폼 (마지막 문제를 푼 뒤 / 게임 오버 시) ----- */
+  function idFormHTML(btnLabel) {
+    let last = {};
+    try { last = JSON.parse(localStorage.getItem('escape_flow_last') || '{}'); } catch (e) {}
+    return `<form class="id-form" autocomplete="off">
+        <label>학번 <input class="in-sid" inputmode="numeric" maxlength="10" placeholder="예) 20512" value="${esc(last.sid || '')}" required></label>
+        <label>이름 <input class="in-name" maxlength="12" placeholder="예) 홍길동" value="${esc(last.name || '')}" required></label>
+        <p class="login-err"></p>
+        <button class="btn btn-start" type="submit">${btnLabel}</button>
+      </form>`;
+  }
+  function bindIdForm(card, onOk) {
+    const form = card.querySelector('.id-form');
+    const sid = form.querySelector('.in-sid'), nm = form.querySelector('.in-name'), err = form.querySelector('.login-err');
+    setTimeout(() => (sid.value ? nm : sid).focus(), 100);
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const s = sid.value.trim(), n = nm.value.trim();
+      if (!/^\d{3,10}$/.test(s)) { err.textContent = '학번은 숫자로 입력해 주세요.'; shake(sid); return; }
+      if (n.length < 2) { err.textContent = '이름을 정확히 입력해 주세요.'; shake(nm); return; }
+      S.sid = s; S.name = n; save();
+      try { localStorage.setItem('escape_flow_last', JSON.stringify({ sid: s, name: n })); } catch (e) {}
+      Sound.play('select');
+      form.querySelector('button').disabled = true;
+      onOk();
+    });
+  }
+
+  /* =========================================================
+     방 입장
+     ========================================================= */
+  function enterRoom(i, showStory = true) {
+    const r = ROOMS[i];
+    setScene(r.key);
+    Sound.startBgm(r.key);
+    renderHUD();
+    renderPassage(r);
+    $('#stage').innerHTML = '';
+    if (!showStory) { closeOverlay(); renderStage(); return; }
+    Sound.play('door');
+    const c = overlay(`
+      <div class="room-no">${r.no}</div>
+      <h2 class="room-title">${esc(r.title)}</h2>
+      <div class="room-sub">${esc(r.sub)}</div>
+      <p class="story">${nl(r.story)}</p>
+      <div class="room-meta">문제 ${r.stages.length}개 ${r.letter ? '· 열쇠 글자 1개' : '· 최종 탈출'}</div>
+      <button class="btn btn-start" id="btn-enter">${i === ROOMS.length - 1 ? '⚔️ 마지막 문으로' : '🚪 방에 들어가기'}</button>`, 'room-intro');
+    c.querySelector('#btn-enter').addEventListener('click', () => { Sound.play('select'); closeOverlay(); renderStage(); });
+  }
+
+  function renderPassage(r, locked = false) {
+    const p = $('#passage');
+    if (!r.passage) {
+      p.innerHTML = `<div class="pass-head">📜 기억의 두루마리</div><div class="pass-locked">🔒 마지막 문 앞에서는 지문을 볼 수 없습니다.<br>지금까지 읽은 다섯 지문을 떠올려 보세요!</div>`;
+      return;
+    }
+    p.innerHTML = `<div class="pass-head">📜 지문 <small>${esc(r.sub)}</small><button class="pass-toggle" aria-label="지문 접기">▾</button></div>
+      <div class="pass-body">${esc(r.passage)}</div>
+      ${locked ? `<div class="pass-lock">🔒 이 문제는 <b>지문을 보지 않고</b> 풀어야 해요!<br><small>(흐름과 무관한 문장 찾기)</small></div>` : ''}`;
+    p.classList.toggle('is-locked', locked);
+    p.querySelector('.pass-toggle').addEventListener('click', () => p.classList.toggle('collapsed'));
+  }
+
+  /* =========================================================
+     문제 렌더링
+     ========================================================= */
+  function renderStage() {
+    if (cleanup) { cleanup(); cleanup = null; }
+    const r = ROOMS[S.room];
+    const st = r.stages[S.stage];
+    stageTries = 0;
+    renderPassage(r, st.type === 'insert');
+    const box = $('#stage');
+    box.className = 'panel stage-' + st.type + (st.boss ? ' boss' : '');
+    box.innerHTML = `
+      <div class="stage-head">
+        <span class="stage-no">STAGE ${S.stage + 1}/${r.stages.length}</span>
+        <span class="badge badge-${st.type}">${esc(st.label)}</span>
+      </div>
+      <div class="stage-body"></div>
+      <div class="stage-foot"></div>`;
+    const body = box.querySelector('.stage-body');
+    const T = { ox: renderOX, mc: renderMC, short: renderShort, insert: renderInsert, order: renderOrder, hotspot: renderHotspot, classify: renderClassify, mini: renderMini, password: renderPassword };
+    T[st.type](body, st);
+    box.scrollTop = 0;
+    if (window.innerWidth < 900) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    renderHUD();
+  }
+
+  const qHTML = st => `<div class="q">${nl(st.q)}</div>`;
+
+  /* ----- 정답 / 오답 처리 ----- */
+  function correct(st, extraPts = 0) {
+    const pts = (st.type === 'mini' ? 200 : stageTries === 0 ? 100 : 50) + extraPts;
+    S.score += pts;
+    Sound.play('coin');
+    flash('ok');
+    floatText(`+${pts}`, 'pts');
+    save(); renderHUD();
+    const foot = $('#stage .stage-foot');
+    $('#stage .stage-body').classList.add('solved');
+    foot.innerHTML = `
+      <div class="explain">
+        <div class="explain-title">${st.type === 'mini' ? '🎉 미니게임 클리어!' : stageTries === 0 ? '⭕ 정답! 완벽해요!' : '⭕ 정답!'}</div>
+        ${st.explain ? `<div class="explain-body">💡 ${nl(st.explain)}</div>` : ''}
+      </div>
+      <button class="btn btn-next">다음 ▶</button>`;
+    const nb = foot.querySelector('.btn-next');
+    nb.addEventListener('click', () => { Sound.play('select'); nextStage(); });
+    setTimeout(() => nb.focus(), 50);
+    foot.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function wrong(msg) {
+    if (S.hearts <= 0) return false;
+    stageTries++;
+    S.wrong++;
+    S.hearts--;
+    Sound.play('wrong');
+    flash('bad');
+    shake($('#stage'));
+    floatText('MISS!', 'miss');
+    save(); renderHUD();
+    const hb = $('#hud-hearts'); hb.classList.remove('hurt'); void hb.offsetWidth; hb.classList.add('hurt');
+    if (S.hearts <= 0) { setTimeout(gameOver, 700); return false; }
+    const foot = $('#stage .stage-foot');
+    foot.innerHTML = `<div class="wrong-msg">❌ ${msg || '틀렸어요! 다시 도전하세요.'} <small>(남은 하트 ${S.hearts})</small></div>`;
+    return true;
+  }
+
+  function hintLine(st) {
+    if (st.hint && stageTries >= 1) return `<div class="hint">💡 힌트: ${esc(st.hint)}</div>`;
+    return '';
+  }
+
+  /* ----- O / X ----- */
+  function renderOX(body, st) {
+    body.innerHTML = qHTML(st) + `<div class="ox-row"><button class="ox o" data-v="O">O</button><button class="ox x" data-v="X">X</button></div>`;
+    body.querySelectorAll('.ox').forEach(b => b.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      if (b.dataset.v === st.a) { b.classList.add('right'); correct(st); }
+      else { b.classList.add('wrongpick'); b.disabled = true; wrong('땡! 지문을 다시 확인해 보세요.'); }
+    }));
+  }
+
+  /* ----- 객관식 ----- */
+  function renderMC(body, st) {
+    body.innerHTML = qHTML(st) + `<div class="mc-list">${st.options.map((o, i) => `<button class="mc" data-i="${i}"><span class="num">${CIRCLED[i]}</span><span>${esc(o)}</span></button>`).join('')}</div>`;
+    body.querySelectorAll('.mc').forEach(b => b.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      if (+b.dataset.i === st.a) { b.classList.add('right'); correct(st); }
+      else { b.classList.add('wrongpick'); b.disabled = true; wrong(); }
+    }));
+  }
+
+  /* ----- 주관식 (넌센스 / 계산 / 영어) ----- */
+  function renderShort(body, st) {
+    body.innerHTML = qHTML(st) + `<div class="answer-row"><input type="text" placeholder="${esc(st.placeholder || '정답 입력')}" autocomplete="off" autocapitalize="off" spellcheck="false" ${st.norm === 'num' ? 'inputmode="numeric"' : ''}><button class="btn btn-go">제출</button></div><div class="hint-box"></div>`;
+    const input = body.querySelector('input'), btn = body.querySelector('button');
+    const norm = st.norm === 'en' ? normEn : st.norm === 'num' ? (s => (s || '').replace(/[^0-9.\-]/g, '')) : normKo;
+    const submit = () => {
+      if (body.classList.contains('solved')) return;
+      const v = norm(input.value);
+      if (!v) { shake(input); return; }
+      if (st.answers.some(a => norm(a) === v)) { input.disabled = true; btn.disabled = true; correct(st); }
+      else {
+        if (wrong()) { body.querySelector('.hint-box').innerHTML = hintLine(st); input.select(); }
+      }
+    };
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    setTimeout(() => input.focus(), 100);
+  }
+
+  /* ----- 흐름과 무관한 문장 ----- */
+  function renderInsert(body, st) {
+    body.innerHTML = qHTML(st) + `<div class="insert-text">
+        ${st.lead.map(s => `<span class="lead">${esc(s)}</span>`).join(' ')}
+        ${st.choices.map((s, i) => `<span class="sent" role="button" tabindex="0" data-i="${i}"><b>${CIRCLED[i]}</b> ${esc(s)}</span>`).join(' ')}
+        ${st.tail.map(s => `<span class="lead">${esc(s)}</span>`).join(' ')}
+      </div>
+      <p class="tip">👆 흐름에서 벗어난 문장을 클릭하세요</p>`;
+    body.querySelectorAll('.sent').forEach(b => {
+      const act = () => {
+        if (body.classList.contains('solved') || b.classList.contains('wrongpick')) return;
+        if (+b.dataset.i === st.a) {
+          b.classList.add('right');
+          renderPassage(ROOMS[S.room], false);
+          correct(st);
+        } else { b.classList.add('wrongpick'); wrong('그 문장은 흐름에 맞아요! 다시 찾아보세요.'); }
+      };
+      b.addEventListener('click', act);
+      b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+    });
+  }
+
+  /* ----- 순서 배열 ----- */
+  function renderOrder(body, st) {
+    const order = shuffle(st.items.map((t, i) => i));
+    let picked = [];
+    body.innerHTML = qHTML(st) + `
+      <div class="order-slots">${st.items.map((_, i) => `<div class="slot" data-n="${i}"><span class="slot-n">${i + 1}</span><span class="slot-t">비어 있음</span></div>`).join('')}</div>
+      <div class="order-pool">${order.map(i => `<button class="chip" data-i="${i}">${esc(st.items[i])}</button>`).join('')}</div>
+      <div class="btn-row"><button class="btn btn-sub reset">↺ 다시 배열</button><button class="btn btn-go check" disabled>확인</button></div>`;
+    const slots = body.querySelectorAll('.slot'), chips = body.querySelectorAll('.chip'), check = body.querySelector('.check');
+    const draw = () => {
+      slots.forEach((s, n) => {
+        const t = s.querySelector('.slot-t');
+        if (picked[n] != null) { s.classList.add('filled'); t.textContent = st.items[picked[n]]; }
+        else { s.classList.remove('filled'); t.textContent = '비어 있음'; }
+      });
+      chips.forEach(c => c.classList.toggle('used', picked.includes(+c.dataset.i)));
+      check.disabled = picked.length !== st.items.length;
+    };
+    chips.forEach(c => c.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      const i = +c.dataset.i;
+      if (picked.includes(i)) return;
+      picked.push(i); Sound.play('blip'); draw();
+    }));
+    slots.forEach((s, n) => s.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      if (picked[n] != null) { picked.splice(n, 1); Sound.play('blip'); draw(); }
+    }));
+    body.querySelector('.reset').addEventListener('click', () => { if (!body.classList.contains('solved')) { picked = []; draw(); } });
+    check.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      const ok = picked.every((v, n) => v === n);
+      if (ok) { slots.forEach(s => s.classList.add('right')); check.disabled = true; correct(st); }
+      else {
+        const firstWrong = picked.findIndex((v, n) => v !== n);
+        if (wrong(`순서가 달라요! ${firstWrong + 1}번째부터 다시 생각해 보세요.`)) { picked = picked.slice(0, firstWrong); draw(); }
+      }
+    });
+  }
+
+  /* ----- 그림 퀴즈 (클릭) ----- */
+  function renderHotspot(body, st) {
+    const svg = st.svg === 'plant' ? Scenes.plantQuiz() : Scenes.eggsQuiz();
+    body.innerHTML = qHTML(st) + `<div class="hotspot-wrap">${svg}</div>
+      <div class="pick-line">선택: <b class="picked">없음</b> ${st.multi ? `<small>(${st.a.length}곳을 고르세요)</small>` : ''}</div>
+      <div class="btn-row"><button class="btn btn-go check" disabled>확인</button></div>`;
+    let sel = [];
+    const hs = body.querySelectorAll('.hs'), check = body.querySelector('.check'), pickedEl = body.querySelector('.picked');
+    const draw = () => {
+      hs.forEach(h => h.classList.toggle('on', sel.includes(h.dataset.id)));
+      pickedEl.textContent = sel.length ? sel.slice().sort().join(', ') : '없음';
+      check.disabled = st.multi ? sel.length !== st.a.length : sel.length !== 1;
+    };
+    hs.forEach(h => {
+      const act = () => {
+        if (body.classList.contains('solved')) return;
+        const id = h.dataset.id;
+        if (st.multi) {
+          if (sel.includes(id)) sel = sel.filter(x => x !== id);
+          else if (sel.length < st.a.length) sel.push(id);
+          else { sel.shift(); sel.push(id); }
+        } else sel = [id];
+        Sound.play('blip'); draw();
+      };
+      h.addEventListener('click', act);
+      h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+    });
+    check.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      const ok = sel.length === st.a.length && st.a.every(x => sel.includes(x));
+      if (ok) { hs.forEach(h => { if (sel.includes(h.dataset.id)) h.classList.add('right'); }); check.disabled = true; correct(st); }
+      else { if (wrong()) { sel = []; draw(); } }
+    });
+  }
+
+  /* ----- 분류 게임 ----- */
+  function renderClassify(body, st) {
+    const cards = shuffle(st.cards.map((c, i) => ({ ...c, i })));
+    const pick = {};
+    body.innerHTML = qHTML(st) + `
+      <div class="cls-head"><span class="b0">${nl(st.bins[0])}</span><span class="b1">${nl(st.bins[1])}</span></div>
+      <div class="cls-list">${cards.map(c => `<div class="cls-card" data-i="${c.i}">
+          <button class="cls-btn b0" data-b="0">◀</button><span class="cls-t">${esc(c.t)}</span><button class="cls-btn b1" data-b="1">▶</button></div>`).join('')}</div>
+      <p class="tip">◀ 치료 중심 / 임종 돌봄 ▶ 버튼으로 분류하세요</p>
+      <div class="btn-row"><button class="btn btn-go check" disabled>확인</button></div>`;
+    const check = body.querySelector('.check');
+    body.querySelectorAll('.cls-card').forEach(card => {
+      card.querySelectorAll('.cls-btn').forEach(b => b.addEventListener('click', () => {
+        if (body.classList.contains('solved')) return;
+        const i = +card.dataset.i;
+        pick[i] = +b.dataset.b;
+        card.classList.remove('to0', 'to1', 'bad'); card.classList.add('to' + pick[i]);
+        Sound.play('blip');
+        check.disabled = Object.keys(pick).length !== st.cards.length;
+      }));
+    });
+    check.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      let bad = 0;
+      body.querySelectorAll('.cls-card').forEach(card => {
+        const i = +card.dataset.i;
+        const ok = pick[i] === st.cards[i].b;
+        card.classList.toggle('bad', !ok);
+        if (!ok) bad++;
+      });
+      if (!bad) { check.disabled = true; correct(st); }
+      else wrong(`${bad}개가 잘못 분류되었어요! 빨간 카드를 다시 확인하세요.`);
+    });
+  }
+
+  /* ----- 미니게임 ----- */
+  function renderMini(body, st) {
+    body.innerHTML = `<div class="mini-box"></div>`;
+    const box = body.querySelector('.mini-box');
+    cleanup = MiniGames[st.game](box, st, () => {
+      if (cleanup) { cleanup(); cleanup = null; }
+      correct(st);
+    });
+  }
+
+  /* ----- 최종 암호 ----- */
+  function renderPassword(body, st) {
+    const letters = S.letters.slice();
+    const tiles = letters.map((l, i) => ({ l, i }));
+    let typed = [];
+    body.innerHTML = qHTML(st) + `
+      <div class="pw-slots">${D.finalWord.split('').map(() => `<span class="pw-slot"></span>`).join('')}</div>
+      <div class="pw-tiles">${tiles.map(t => `<button class="pw-tile" data-i="${t.i}">${t.l}</button>`).join('')}</div>
+      <div class="btn-row"><button class="btn btn-sub reset">↺ 지우기</button><button class="btn btn-go check" disabled>🔓 문 열기</button></div>`;
+    const slots = body.querySelectorAll('.pw-slot'), tbtn = body.querySelectorAll('.pw-tile'), check = body.querySelector('.check');
+    const draw = () => {
+      slots.forEach((s, n) => { s.textContent = typed[n] != null ? letters[typed[n]] : ''; s.classList.toggle('filled', typed[n] != null); });
+      tbtn.forEach(b => b.disabled = typed.includes(+b.dataset.i));
+      check.disabled = typed.length !== D.finalWord.length;
+    };
+    tbtn.forEach(b => b.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      typed.push(+b.dataset.i); Sound.play('blip'); draw();
+    }));
+    body.querySelector('.reset').addEventListener('click', () => { if (!body.classList.contains('solved')) { typed = []; draw(); } });
+    check.addEventListener('click', () => {
+      if (body.classList.contains('solved')) return;
+      const w = typed.map(i => letters[i]).join('');
+      if (w === D.finalWord) {
+        slots.forEach(s => s.classList.add('right'));
+        document.querySelectorAll('.final-lock').forEach((l, i) => setTimeout(() => l.classList.add('open'), i * 150));
+        check.disabled = true; correct(st);
+      } else if (wrong('문이 꿈쩍도 하지 않는다… 다시 배열해 보세요!')) { typed = []; draw(); }
+    });
+    draw();
+  }
+
+  /* =========================================================
+     진행
+     ========================================================= */
+  function nextStage() {
+    const r = ROOMS[S.room];
+    S.stage++;
+    save();
+    if (S.stage >= r.stages.length) roomClear();
+    else renderStage();
+  }
+
+  function roomClear() {
+    if (cleanup) { cleanup(); cleanup = null; }
+    const r = ROOMS[S.room];
+    if (S.room === ROOMS.length - 1) { victory(); return; }
+    S.letters.push(r.letter);
+    S.score += 500;
+    let oneUp = false;
+    if (S.hearts < D.maxHearts) { S.hearts++; oneUp = true; }
+    S.room++; S.stage = 0;
+    save(); renderHUD();
+    Sound.play('powerup');
+    setTimeout(() => Sound.play('key'), 700);
+    if (oneUp) setTimeout(() => Sound.play('oneup'), 1400);
+    confetti(60);
+    const c = overlay(`
+      <div class="clear-title">ROOM CLEAR!</div>
+      <div class="door-anim"><div class="door-l"></div><div class="door-r"></div><div class="door-light"></div></div>
+      <p>${esc(r.title)}을(를) 탈출했습니다!</p>
+      <div class="key-get">🔑 열쇠 글자 획득 <span class="big-letter">${r.letter}</span></div>
+      ${oneUp ? `<div class="oneup">🍄 1UP! 하트 +1</div>` : ''}
+      <div class="clear-score">+500 BONUS</div>
+      <button class="btn btn-start" id="btn-nextroom">다음 방으로 ▶</button>`, 'clear');
+    c.querySelector('#btn-nextroom').addEventListener('click', () => { Sound.play('select'); enterRoom(S.room); });
+  }
+
+  function stopRun() {
+    S.accum = elapsed(); S.runStart = null;
+    clearInterval(timerInt);
+    tickTimer();
+  }
+
+  function gameOver() {
+    if (cleanup) { cleanup(); cleanup = null; }
+    stopRun();
+    S.over = true; save();
+    Sound.stopBgm();
+    Sound.play('gameover');
+    const c = overlay(`
+      <div class="go-title">GAME OVER</div>
+      <p class="go-msg">하트를 모두 잃었습니다… 😵</p>
+      <div class="result-box">
+        <div><span>도달한 곳</span><b>${esc(reached())}</b></div>
+        <div><span>오답</span><b>${S.wrong}회</b></div>
+        <div><span>점수</span><b>${S.score}</b></div>
+        <div><span>소요 시간</span><b>${fmtTime(elapsed())}</b></div>
+      </div>
+      <p class="send-state">학번과 이름을 입력하면 기록이 전송되고 다시 도전할 수 있어요.</p>
+      ${idFormHTML('📨 기록 전송하고 다시 도전')}`, 'gameover');
+    bindIdForm(c, () => {
+      c.querySelector('.send-state').textContent = '📨 결과를 전송하는 중…';
+      sendRecord('탈출 실패').then(ok => {
+        c.querySelector('.send-state').textContent = ok ? '✅ 결과가 선생님께 전송되었습니다.' : '⚠️ 인터넷 연결을 확인하세요. (다음 접속 때 다시 전송돼요)';
+        setTimeout(() => { Sound.play('jump'); newGame(); }, 900);
+      });
+    });
+  }
+
+  function victory() {
+    stopRun();
+    S.room = ROOMS.length; S.stage = 0;
+    if (!S.won) { S.won = true; S.bonus = S.hearts * 300; S.score += S.bonus; }
+    save(); renderHUD();
+    Sound.startBgm('victory');
+    Sound.play('fanfare');
+    confetti(200);
+    setTimeout(() => confetti(120), 1500);
+    const perfect = S.wrong === 0;
+    // 1단계: 마지막 문제를 푼 뒤 학번·이름 입력 → 전송 순서 = 탈출 순서
+    const f = overlay(`
+      <div class="win-title">${perfect ? 'PERFECT ESCAPE!' : 'ESCAPE SUCCESS!'}</div>
+      <p>🎉 마지막 문이 열렸습니다! <br>학번과 이름을 입력하면 <b>탈출 기록</b>이 선생님께 전송돼요.</p>
+      ${idFormHTML('📨 탈출 기록 전송')}`, 'victory');
+    bindIdForm(f, () => showCertificate(perfect));
+  }
+
+  function showCertificate(perfect) {
+    S.over = true; save();
+    try { localStorage.removeItem(ATTEMPT_KEY); } catch (e) {}
+    const bonus = S.bonus || 0;
+    confetti(80);
+    const c = overlay(`
+      <div class="win-title">${perfect ? 'PERFECT ESCAPE!' : 'ESCAPE SUCCESS!'}</div>
+      <div class="cert">
+        <div class="cert-head">🏆 탈 출 증 명 서 🏆</div>
+        <div class="cert-name">${esc(S.sid)} ${esc(S.name)}</div>
+        <p>위 학생은 다섯 개의 지문 방과 마지막 문을 모두 통과하여<br><b>'흐름의 방'</b>에서 완벽하게 탈출하였음을 증명합니다.</p>
+        <div class="result-box">
+          <div><span>남은 하트</span><b>${'❤️'.repeat(S.hearts)}${'🤍'.repeat(D.maxHearts - S.hearts)}</b></div>
+          <div><span>오답</span><b>${S.wrong}회</b></div>
+          <div><span>최종 점수</span><b>${S.score} <small>(하트 보너스 +${bonus})</small></b></div>
+          <div><span>소요 시간</span><b>${fmtTime(elapsed())}</b></div>
+          <div><span>도전</span><b>${S.attempt}회차</b></div>
+        </div>
+        <div class="cert-word">S · M · I · L · E 😊</div>
+      </div>
+      <p class="send-state">📨 결과를 전송하는 중…</p>
+      <button class="btn btn-sub" id="btn-home">처음 화면으로</button>`, 'victory');
+    sendRecord(perfect ? '탈출 성공(퍼펙트)' : '탈출 성공').then(ok => {
+      c.querySelector('.send-state').textContent = ok ? '✅ 탈출 기록이 선생님께 전송되었습니다!' : '⚠️ 인터넷 연결을 확인하세요. (다음 접속 때 다시 전송돼요)';
+    });
+    c.querySelector('#btn-home').addEventListener('click', () => { Sound.play('select'); showIntro(); });
+  }
+
+  /* ---------------- 버튼들 ---------------- */
+  function bindHUD() {
+    const sb = $('#btn-sfx'), bb = $('#btn-bgm');
+    sb.addEventListener('click', () => { Sound.init(); const on = Sound.toggleSfx(); sb.classList.toggle('off', !on); sb.textContent = on ? '🔊' : '🔇'; });
+    bb.addEventListener('click', () => { Sound.init(); const on = Sound.toggleBgm(); bb.classList.toggle('off', !on); bb.textContent = on ? '🎵' : '🎵̸'; });
+    document.addEventListener('pointerdown', () => Sound.init(), { once: true });
+    window.addEventListener('beforeunload', () => { if (S && !S.over) { S.accum = elapsed(); S.runStart = Date.now(); save(); } });
+    window.addEventListener('pagehide', () => { if (S && !S.over) { S.accum = elapsed(); S.runStart = null; save(); } });
+  }
+
+  // 테스트 모드(?nosubmit): 기록이 전송되지 않으며 방 이동 단축키 제공
+  if (NOSUBMIT) window.__dev = {
+    jump(room, stage = 0) { if (!S) return; S.room = room; S.stage = stage; S.letters = ROOMS.slice(0, room).map(r => r.letter).filter(Boolean); S.over = false; save(); closeOverlay(); enterRoom(room, false); },
+    state: () => S
+  };
+
+  bindHUD();
+  flushPending();
+  showIntro();
+})();
+
+</script>
+</body>
+</html>
